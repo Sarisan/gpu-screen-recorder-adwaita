@@ -23,7 +23,7 @@ src = [
 ]
 
 dep = [
-    dependency('libadwaita-1', version : '>=1.8'),
+    dependency('libadwaita-1', version : '>=1.7'),
 ]
 
 c_args = [
