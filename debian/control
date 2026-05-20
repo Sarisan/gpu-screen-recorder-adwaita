@@ -1,0 +1,17 @@
+Source: gpu-screen-recorder-gnome
+Section: video
+Maintainer: Maria Lisina <sekoohaka.sarisan@gmail.com>
+Build-Depends: debhelper-compat (= 13),
+               meson,
+               pkg-config,
+               desktop-file-utils,
+               libadwaita-1-dev,
+               libx11-dev
+Standards-Version: 4.7.4
+
+Package: gpu-screen-recorder-gnome
+Architecture: linux-any
+Depends: gpu-screen-recorder,
+         ${shlibs:Depends},
+         ${misc:Depends}
+Description: GNOME frontend for GPU Screen Recorder.
