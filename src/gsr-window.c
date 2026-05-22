@@ -863,7 +863,7 @@ gsr_window_init(GsrWindow *self)
 
     /* ── Window properties ─── */
     gtk_window_set_title(GTK_WINDOW(self), "GPU Screen Recorder");
-    gtk_window_set_default_size(GTK_WINDOW(self), 710, 660);
+    gtk_window_set_default_size(GTK_WINDOW(self), 810, 685);
 
     /* ── Load system info ─── */
     GsrInfoExitStatus info_status = gsr_info_load(&self->info);
