@@ -1,3 +1,9 @@
+gpu-screen-recorder-gnome (1.0.0-3) stable; urgency=low
+
+  * Misc improvements to custom patches.
+
+ -- Maria Lisina <sekoohaka.sarisan@gmail.com>  Wed, 21 May 2026 07:36:06 +0000
+
 gpu-screen-recorder-gnome (1.0.0-2) stable; urgency=low
 
   * Fixed default window size.
