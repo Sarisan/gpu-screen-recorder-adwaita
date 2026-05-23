@@ -3,6 +3,7 @@ project('gpu-screen-recorder-adwaita', 'c',
     default_options : ['warning_level=2', 'c_std=gnu23'],
 )
 
+add_project_arguments('-Wno-deprecated-declarations', language : 'c')
 add_project_arguments('-Wshadow', language : 'c')
 if get_option('buildtype') == 'debug'
     add_project_arguments('-g3', language : 'c')
