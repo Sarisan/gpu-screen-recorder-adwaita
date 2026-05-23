@@ -51,59 +51,72 @@ on_shortcuts_action(GSimpleAction *action,
     GtkShortcutsWindow *dialog = GTK_SHORTCUTS_WINDOW(
         g_object_new(GTK_TYPE_SHORTCUTS_WINDOW,
                      "transient-for", win,
-                     "modal", TRUE,
-                     NULL));
+                     "modal", TRUE, NULL));
 
-    GtkShortcutsSection *main_sec = GTK_SHORTCUTS_SECTION(
-        g_object_new(GTK_TYPE_SHORTCUTS_SECTION, "visible", TRUE, NULL));
+    GtkShortcutsSection *section = GTK_SHORTCUTS_SECTION(
+        g_object_new(GTK_TYPE_SHORTCUTS_SECTION,
+                     "visible", TRUE, NULL));
 
     /* ── Stream group ─── */
-    GtkShortcutsGroup *stream_grp = GTK_SHORTCUTS_GROUP(
-        g_object_new(GTK_TYPE_SHORTCUTS_GROUP, "title", "Stream", "visible", TRUE, NULL));
+    GtkShortcutsGroup *stream = GTK_SHORTCUTS_GROUP(
+        g_object_new(GTK_TYPE_SHORTCUTS_GROUP,
+                     "title", "Stream",
+                     "visible", TRUE, NULL));
 
-    gtk_shortcuts_group_add_shortcut(stream_grp,
-        GTK_SHORTCUTS_SHORTCUT(g_object_new(GTK_TYPE_SHORTCUTS_SHORTCUT,
-                                           "title", "Start / Stop streaming",
-                                           "accelerator", "<Alt>1",
-                                           "visible", TRUE, NULL)));
+    GtkShortcutsShortcut *stream1 = GTK_SHORTCUTS_SHORTCUT(
+        g_object_new(GTK_TYPE_SHORTCUTS_SHORTCUT,
+                     "title", "Start / Stop streaming",
+                     "accelerator", "<Alt>1",
+                     "visible", TRUE, NULL));
+    gtk_shortcuts_group_add_shortcut(stream, stream1);
 
-    gtk_shortcuts_section_add_group(main_sec, stream_grp);
+    gtk_shortcuts_section_add_group(section, stream);
 
     /* ── Record group ─── */
-    GtkShortcutsGroup *record_grp = GTK_SHORTCUTS_GROUP(
-        g_object_new(GTK_TYPE_SHORTCUTS_GROUP, "title", "Record", "visible", TRUE, NULL));
+    GtkShortcutsGroup *record = GTK_SHORTCUTS_GROUP(
+        g_object_new(GTK_TYPE_SHORTCUTS_GROUP,
+                     "title", "Record",
+                     "visible", TRUE, NULL));
 
-    gtk_shortcuts_group_add_shortcut(record_grp,
-        GTK_SHORTCUTS_SHORTCUT(g_object_new(GTK_TYPE_SHORTCUTS_SHORTCUT,
-                                           "title", "Start / Stop recording",
-                                           "accelerator", "<Alt>1",
-                                           "visible", TRUE, NULL)));
-    gtk_shortcuts_group_add_shortcut(record_grp,
-        GTK_SHORTCUTS_SHORTCUT(g_object_new(GTK_TYPE_SHORTCUTS_SHORTCUT,
-                                           "title", "Pause / Unpause recording",
-                                           "accelerator", "<Alt>2",
-                                           "visible", TRUE, NULL)));
+    GtkShortcutsShortcut *record1 = GTK_SHORTCUTS_SHORTCUT(
+        g_object_new(GTK_TYPE_SHORTCUTS_SHORTCUT,
+                     "title", "Start / Stop recording",
+                     "accelerator", "<Alt>1",
+                     "visible", TRUE, NULL));
+    gtk_shortcuts_group_add_shortcut(record, record1);
 
-    gtk_shortcuts_section_add_group(main_sec, record_grp);
+    GtkShortcutsShortcut *record2 = GTK_SHORTCUTS_SHORTCUT(
+        g_object_new(GTK_TYPE_SHORTCUTS_SHORTCUT,
+                     "title", "Pause / Unpause recording",
+                     "accelerator", "<Alt>2",
+                     "visible", TRUE, NULL));
+    gtk_shortcuts_group_add_shortcut(record, record2);
+
+    gtk_shortcuts_section_add_group(section, record);
 
     /* ── Replay group ─── */
-    GtkShortcutsGroup *replay_grp = GTK_SHORTCUTS_GROUP(
-        g_object_new(GTK_TYPE_SHORTCUTS_GROUP, "title", "Replay", "visible", TRUE, NULL));
+    GtkShortcutsGroup *replay = GTK_SHORTCUTS_GROUP(
+        g_object_new(GTK_TYPE_SHORTCUTS_GROUP,
+                     "title", "Replay",
+                     "visible", TRUE, NULL));
 
-    gtk_shortcuts_group_add_shortcut(replay_grp,
-        GTK_SHORTCUTS_SHORTCUT(g_object_new(GTK_TYPE_SHORTCUTS_SHORTCUT,
-                                           "title", "Start / Stop replay",
-                                           "accelerator", "<Alt>1",
-                                           "visible", TRUE, NULL)));
-    gtk_shortcuts_group_add_shortcut(replay_grp,
-        GTK_SHORTCUTS_SHORTCUT(g_object_new(GTK_TYPE_SHORTCUTS_SHORTCUT,
-                                           "title", "Save replay",
-                                           "accelerator", "<Alt>2",
-                                           "visible", TRUE, NULL)));
+    GtkShortcutsShortcut *replay1 = GTK_SHORTCUTS_SHORTCUT(
+        g_object_new(GTK_TYPE_SHORTCUTS_SHORTCUT,
+                     "title", "Start / Stop replay",
+                     "accelerator", "<Alt>1",
+                     "visible", TRUE, NULL));
+    gtk_shortcuts_group_add_shortcut(replay, replay1);
 
-    gtk_shortcuts_section_add_group(main_sec, replay_grp);
+    GtkShortcutsShortcut *replay2 = GTK_SHORTCUTS_SHORTCUT(
+        g_object_new(GTK_TYPE_SHORTCUTS_SHORTCUT,
+                     "title", "Save replay",
+                     "accelerator", "<Alt>2",
+                     "visible", TRUE, NULL));
+    gtk_shortcuts_group_add_shortcut(replay, replay2);
 
-    gtk_shortcuts_window_add_section(dialog, main_sec);
+    gtk_shortcuts_section_add_group(section, replay);
+
+    gtk_shortcuts_window_add_section(dialog, section);
     gtk_window_present(GTK_WINDOW(dialog));
 }
 
