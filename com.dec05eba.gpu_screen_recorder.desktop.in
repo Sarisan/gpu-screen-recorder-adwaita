@@ -1,8 +1,8 @@
 [Desktop Entry]
 Type=Application
 Name=GPU Screen Recorder
-GenericName=Screen recorder
-Comment=A gpu based screen recorder / streaming program
+GenericName=Screen Recorder
+Comment=A GPU-based screen recorder / streaming program
 Icon=com.dec05eba.gpu_screen_recorder
 Exec=gpu-screen-recorder-adw
 Terminal=false
