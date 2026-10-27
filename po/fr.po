@@ -692,11 +692,11 @@ msgid "GPU Screen Recorder"
 msgstr ""
 
 #: com.dec05eba.gpu_screen_recorder.desktop.in:4
-msgid "Screen recorder"
-msgstr "Enregistreur d'écran"
+msgid "Screen Recorder"
+msgstr "Enregistreur d'Écran"
 
 #: com.dec05eba.gpu_screen_recorder.desktop.in:5
-msgid "A gpu based screen recorder / streaming program"
+msgid "A GPU-based screen recorder / streaming program"
 msgstr "Un programme d'enregistrement et de diffusion d'écran basé sur le GPU"
 
 #: com.dec05eba.gpu_screen_recorder.desktop.in:9
