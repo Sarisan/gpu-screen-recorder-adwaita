@@ -1,5 +1,6 @@
 #include "gsr-stream-page.h"
 
+#include <string.h>
 #include <time.h>
 #include <glib/gi18n.h>
 
@@ -18,8 +19,25 @@
 typedef enum {
     STREAM_SERVICE_TWITCH,
     STREAM_SERVICE_YOUTUBE,
+    STREAM_SERVICE_RUMBLE,
+    STREAM_SERVICE_KICK,
+    STREAM_SERVICE_WHIP,
     STREAM_SERVICE_CUSTOM,
+    STREAM_SERVICE_COUNT,
 } StreamService;
+
+/* Config IDs and display names, indexed by StreamService */
+static const struct {
+    const char *id;
+    const char *label;
+} stream_services[STREAM_SERVICE_COUNT] = {
+    [STREAM_SERVICE_TWITCH]  = { "twitch",  N_("Twitch")  },
+    [STREAM_SERVICE_YOUTUBE] = { "youtube", N_("YouTube") },
+    [STREAM_SERVICE_RUMBLE]  = { "rumble",  N_("Rumble")  },
+    [STREAM_SERVICE_KICK]    = { "kick",    N_("Kick")    },
+    [STREAM_SERVICE_WHIP]    = { "whip",    N_("WHIP")    },
+    [STREAM_SERVICE_CUSTOM]  = { "custom",  N_("Custom")  },
+};
 
 struct _GsrStreamPage {
     AdwPreferencesPage parent_instance;
@@ -43,9 +61,17 @@ struct _GsrStreamPage {
     /* ── Service group ─── */
     AdwPreferencesGroup *service_group;
     AdwComboRow         *service_row;
+    StreamService        services[STREAM_SERVICE_COUNT]; /* combo index → service */
+    guint                n_services;
     AdwPasswordEntryRow *twitch_key_row;
     AdwPasswordEntryRow *youtube_key_row;
+    AdwPasswordEntryRow *rumble_key_row;
+    AdwEntryRow         *kick_url_row;
+    AdwPasswordEntryRow *kick_key_row;
+    AdwEntryRow         *whip_url_row;
+    AdwPasswordEntryRow *whip_token_row;
     AdwPasswordEntryRow *custom_url_row;
+    AdwPasswordEntryRow *custom_key_row;
     AdwComboRow         *container_row;
 
     /* ── Action group ─── */
@@ -71,12 +97,9 @@ static StreamService
 get_selected_service(GsrStreamPage *self)
 {
     guint idx = adw_combo_row_get_selected(self->service_row);
-    switch (idx) {
-    case 0:  return STREAM_SERVICE_TWITCH;
-    case 1:  return STREAM_SERVICE_YOUTUBE;
-    case 2:  return STREAM_SERVICE_CUSTOM;
-    default: return STREAM_SERVICE_TWITCH;
-    }
+    if (idx < self->n_services)
+        return self->services[idx];
+    return STREAM_SERVICE_TWITCH;
 }
 
 static void
@@ -87,7 +110,19 @@ update_service_visibility(GsrStreamPage *self)
         svc == STREAM_SERVICE_TWITCH);
     gtk_widget_set_visible(GTK_WIDGET(self->youtube_key_row),
         svc == STREAM_SERVICE_YOUTUBE);
+    gtk_widget_set_visible(GTK_WIDGET(self->rumble_key_row),
+        svc == STREAM_SERVICE_RUMBLE);
+    gtk_widget_set_visible(GTK_WIDGET(self->kick_url_row),
+        svc == STREAM_SERVICE_KICK);
+    gtk_widget_set_visible(GTK_WIDGET(self->kick_key_row),
+        svc == STREAM_SERVICE_KICK);
+    gtk_widget_set_visible(GTK_WIDGET(self->whip_url_row),
+        svc == STREAM_SERVICE_WHIP);
+    gtk_widget_set_visible(GTK_WIDGET(self->whip_token_row),
+        svc == STREAM_SERVICE_WHIP);
     gtk_widget_set_visible(GTK_WIDGET(self->custom_url_row),
+        svc == STREAM_SERVICE_CUSTOM);
+    gtk_widget_set_visible(GTK_WIDGET(self->custom_key_row),
         svc == STREAM_SERVICE_CUSTOM);
     gtk_widget_set_visible(GTK_WIDGET(self->container_row),
         svc == STREAM_SERVICE_CUSTOM);
@@ -311,8 +346,15 @@ build_service_group(GsrStreamPage *self)
     self->service_row = ADW_COMBO_ROW(adw_combo_row_new());
     adw_preferences_row_set_title(ADW_PREFERENCES_ROW(self->service_row),
         _("Service"));
-    GtkStringList *svc_model = gtk_string_list_new(
-        (const char *const[]){ _("Twitch"), _("YouTube"), _("Custom"), NULL });
+    GtkStringList *svc_model = gtk_string_list_new(NULL);
+    self->n_services = 0;
+    for (int i = 0; i < STREAM_SERVICE_COUNT; i++) {
+        /* WHIP requires gpu-screen-recorder built with FFmpeg 8.0 or later */
+        if (i == STREAM_SERVICE_WHIP && !self->info->supported_containers.whip)
+            continue;
+        self->services[self->n_services++] = (StreamService)i;
+        gtk_string_list_append(svc_model, _(stream_services[i].label));
+    }
     adw_combo_row_set_model(self->service_row, G_LIST_MODEL(svc_model));
     adw_combo_row_set_selected(self->service_row, 0);
     g_signal_connect(self->service_row, "notify::selected",
@@ -335,6 +377,44 @@ build_service_group(GsrStreamPage *self)
     adw_preferences_group_add(self->service_group,
         GTK_WIDGET(self->youtube_key_row));
 
+    /* Rumble stream key */
+    self->rumble_key_row = ADW_PASSWORD_ENTRY_ROW(adw_password_entry_row_new());
+    adw_preferences_row_set_title(ADW_PREFERENCES_ROW(self->rumble_key_row),
+        _("Stream key"));
+    gtk_widget_set_visible(GTK_WIDGET(self->rumble_key_row), FALSE);
+    adw_preferences_group_add(self->service_group,
+        GTK_WIDGET(self->rumble_key_row));
+
+    /* Kick stream URL + key */
+    self->kick_url_row = ADW_ENTRY_ROW(adw_entry_row_new());
+    adw_preferences_row_set_title(ADW_PREFERENCES_ROW(self->kick_url_row),
+        _("Stream URL"));
+    gtk_widget_set_visible(GTK_WIDGET(self->kick_url_row), FALSE);
+    adw_preferences_group_add(self->service_group,
+        GTK_WIDGET(self->kick_url_row));
+
+    self->kick_key_row = ADW_PASSWORD_ENTRY_ROW(adw_password_entry_row_new());
+    adw_preferences_row_set_title(ADW_PREFERENCES_ROW(self->kick_key_row),
+        _("Stream key"));
+    gtk_widget_set_visible(GTK_WIDGET(self->kick_key_row), FALSE);
+    adw_preferences_group_add(self->service_group,
+        GTK_WIDGET(self->kick_key_row));
+
+    /* WHIP endpoint URL + optional bearer token */
+    self->whip_url_row = ADW_ENTRY_ROW(adw_entry_row_new());
+    adw_preferences_row_set_title(ADW_PREFERENCES_ROW(self->whip_url_row),
+        _("Stream URL"));
+    gtk_widget_set_visible(GTK_WIDGET(self->whip_url_row), FALSE);
+    adw_preferences_group_add(self->service_group,
+        GTK_WIDGET(self->whip_url_row));
+
+    self->whip_token_row = ADW_PASSWORD_ENTRY_ROW(adw_password_entry_row_new());
+    adw_preferences_row_set_title(ADW_PREFERENCES_ROW(self->whip_token_row),
+        _("Bearer token (optional)"));
+    gtk_widget_set_visible(GTK_WIDGET(self->whip_token_row), FALSE);
+    adw_preferences_group_add(self->service_group,
+        GTK_WIDGET(self->whip_token_row));
+
     /* Custom URL */
     self->custom_url_row = ADW_PASSWORD_ENTRY_ROW(adw_password_entry_row_new());
     adw_preferences_row_set_title(ADW_PREFERENCES_ROW(self->custom_url_row),
@@ -342,6 +422,14 @@ build_service_group(GsrStreamPage *self)
     gtk_widget_set_visible(GTK_WIDGET(self->custom_url_row), FALSE);
     adw_preferences_group_add(self->service_group,
         GTK_WIDGET(self->custom_url_row));
+
+    /* Custom stream key (appended to the URL) */
+    self->custom_key_row = ADW_PASSWORD_ENTRY_ROW(adw_password_entry_row_new());
+    adw_preferences_row_set_title(ADW_PREFERENCES_ROW(self->custom_key_row),
+        _("Stream key"));
+    gtk_widget_set_visible(GTK_WIDGET(self->custom_key_row), FALSE);
+    adw_preferences_group_add(self->service_group,
+        GTK_WIDGET(self->custom_key_row));
 
     /* Container (custom service only) */
     self->container_row = ADW_COMBO_ROW(adw_combo_row_new());
@@ -492,24 +580,14 @@ combo_row_get_selected_string(AdwComboRow *row)
 
 /* Map config streaming service string to combo index */
 static guint
-service_string_to_index(const char *svc)
+service_string_to_index(GsrStreamPage *self, const char *svc)
 {
     if (!svc) return 0;
-    if (g_str_equal(svc, "twitch"))  return 0;
-    if (g_str_equal(svc, "youtube")) return 1;
-    if (g_str_equal(svc, "custom"))  return 2;
-    return 0;
-}
-
-static const char *
-service_index_to_string(guint idx)
-{
-    switch (idx) {
-    case 0:  return "twitch";
-    case 1:  return "youtube";
-    case 2:  return "custom";
-    default: return "twitch";
+    for (guint i = 0; i < self->n_services; i++) {
+        if (g_str_equal(svc, stream_services[self->services[i]].id))
+            return i;
     }
+    return 0;
 }
 
 /* Map config container ID to display name */
@@ -540,14 +618,26 @@ gsr_stream_page_apply_config(GsrStreamPage *self, const GsrConfig *config)
     const GsrStreamingConfig *s = &config->streaming_config;
 
     adw_combo_row_set_selected(self->service_row,
-        service_string_to_index(s->streaming_service));
+        service_string_to_index(self, s->streaming_service));
 
     gtk_editable_set_text(GTK_EDITABLE(self->twitch_key_row),
         s->twitch_stream_key ? s->twitch_stream_key : "");
     gtk_editable_set_text(GTK_EDITABLE(self->youtube_key_row),
         s->youtube_stream_key ? s->youtube_stream_key : "");
+    gtk_editable_set_text(GTK_EDITABLE(self->rumble_key_row),
+        s->rumble_stream_key ? s->rumble_stream_key : "");
+    gtk_editable_set_text(GTK_EDITABLE(self->kick_url_row),
+        s->kick_stream_url ? s->kick_stream_url : "");
+    gtk_editable_set_text(GTK_EDITABLE(self->kick_key_row),
+        s->kick_stream_key ? s->kick_stream_key : "");
+    gtk_editable_set_text(GTK_EDITABLE(self->whip_url_row),
+        s->whip_url ? s->whip_url : "");
+    gtk_editable_set_text(GTK_EDITABLE(self->whip_token_row),
+        s->whip_bearer_token ? s->whip_bearer_token : "");
     gtk_editable_set_text(GTK_EDITABLE(self->custom_url_row),
         s->custom_url ? s->custom_url : "");
+    gtk_editable_set_text(GTK_EDITABLE(self->custom_key_row),
+        s->custom_key ? s->custom_key : "");
 
     /* Container for custom service */
     combo_row_select_string(self->container_row,
@@ -571,14 +661,22 @@ gsr_stream_page_read_config(GsrStreamPage *self, GsrConfig *config)
 {
     GsrStreamingConfig *s = &config->streaming_config;
 
-    g_set_str(&s->streaming_service, service_index_to_string(
-        adw_combo_row_get_selected(self->service_row)));
+    g_set_str(&s->streaming_service, stream_services[get_selected_service(self)].id);
 
     g_set_str(&s->twitch_stream_key, gtk_editable_get_text(GTK_EDITABLE(self->twitch_key_row)));
 
     g_set_str(&s->youtube_stream_key, gtk_editable_get_text(GTK_EDITABLE(self->youtube_key_row)));
 
+    g_set_str(&s->rumble_stream_key, gtk_editable_get_text(GTK_EDITABLE(self->rumble_key_row)));
+
+    g_set_str(&s->kick_stream_url, gtk_editable_get_text(GTK_EDITABLE(self->kick_url_row)));
+    g_set_str(&s->kick_stream_key, gtk_editable_get_text(GTK_EDITABLE(self->kick_key_row)));
+
+    g_set_str(&s->whip_url, gtk_editable_get_text(GTK_EDITABLE(self->whip_url_row)));
+    g_set_str(&s->whip_bearer_token, gtk_editable_get_text(GTK_EDITABLE(self->whip_token_row)));
+
     g_set_str(&s->custom_url, gtk_editable_get_text(GTK_EDITABLE(self->custom_url_row)));
+    g_set_str(&s->custom_key, gtk_editable_get_text(GTK_EDITABLE(self->custom_key_row)));
 
     g_set_str(&s->custom_container, stream_container_display_to_id(
         combo_row_get_selected_string(self->container_row)));
@@ -620,6 +718,72 @@ gsr_stream_page_update_timer(GsrStreamPage *self, const char *text)
     gtk_label_set_text(self->timer_label, text);
 }
 
+/* |url| is expected to not have a scheme prefix. Matches loopback hosts only,
+ * so a WHIP URL without a scheme can safely default to plain http://. */
+static gboolean
+url_is_local_address(const char *url)
+{
+    /* The authority is everything before the first path/query/fragment separator */
+    g_autofree char *authority = g_strndup(url, strcspn(url, "/?#"));
+
+    /* Reject userinfo: in "localhost:@example.com/x" the real host is example.com */
+    if (strchr(authority, '@'))
+        return FALSE;
+
+    if (g_str_has_prefix(authority, "[::1]"))
+        return authority[5] == '\0' || authority[5] == ':';
+
+    char *port = strchr(authority, ':');
+    if (port)
+        *port = '\0';
+
+    if (g_str_equal(authority, "localhost"))
+        return TRUE;
+
+    /* Numeric check so that e.g. 127.malicious.example isn't treated as loopback */
+    if (!g_str_has_prefix(authority, "127."))
+        return FALSE;
+    for (const char *c = authority; *c; c++) {
+        if (!g_ascii_isdigit(*c) && *c != '.')
+            return FALSE;
+    }
+    return TRUE;
+}
+
+static gboolean
+url_has_http_scheme(const char *url)
+{
+    return g_str_has_prefix(url, "http://") || g_str_has_prefix(url, "https://");
+}
+
+gboolean
+gsr_stream_page_validate(GsrStreamPage *self, char **error_message)
+{
+    g_return_val_if_fail(GSR_IS_STREAM_PAGE(self), FALSE);
+
+    if (get_selected_service(self) != STREAM_SERVICE_WHIP)
+        return TRUE;
+
+    const char *url = gtk_editable_get_text(GTK_EDITABLE(self->whip_url_row));
+    const char *msg = NULL;
+
+    if (!self->info->supported_containers.whip)
+        msg = _("WHIP streaming requires GPU Screen Recorder built with FFmpeg 8.0 or later");
+    else if (!url || !url[0])
+        msg = _("The WHIP stream URL is empty. Please set a stream URL");
+    /* Don't assume a scheme for remote hosts: https:// breaks plain http
+     * servers, while http:// would send the bearer token unencrypted. */
+    else if (!url_has_http_scheme(url) && !url_is_local_address(url))
+        msg = _("The WHIP stream URL should start with http:// or https://");
+
+    if (msg) {
+        if (error_message)
+            *error_message = g_strdup(msg);
+        return FALSE;
+    }
+    return TRUE;
+}
+
 char *
 gsr_stream_page_get_stream_url(GsrStreamPage *self)
 {
@@ -634,22 +798,55 @@ gsr_stream_page_get_stream_url(GsrStreamPage *self)
         const char *key = gtk_editable_get_text(GTK_EDITABLE(self->youtube_key_row));
         return g_strdup_printf("rtmp://a.rtmp.youtube.com/live2/%s", key ? key : "");
     }
-    case STREAM_SERVICE_CUSTOM: {
-        const char *url = gtk_editable_get_text(GTK_EDITABLE(self->custom_url_row));
+    case STREAM_SERVICE_RUMBLE: {
+        const char *key = gtk_editable_get_text(GTK_EDITABLE(self->rumble_key_row));
+        return g_strdup_printf("rtmp://rtmp.rumble.com/live/%s", key ? key : "");
+    }
+    case STREAM_SERVICE_KICK: {
+        const char *url = gtk_editable_get_text(GTK_EDITABLE(self->kick_url_row));
+        const char *key = gtk_editable_get_text(GTK_EDITABLE(self->kick_key_row));
+        GString *out = g_string_new(url ? url : "");
+        if (out->len > 0 && out->str[out->len - 1] != '/')
+            g_string_append_c(out, '/');
+        g_string_append(out, "app/");
+        g_string_append(out, key ? key : "");
+        return g_string_free(out, FALSE);
+    }
+    case STREAM_SERVICE_WHIP: {
+        const char *url = gtk_editable_get_text(GTK_EDITABLE(self->whip_url_row));
         if (!url || !url[0])
             return g_strdup("");
+        if (!url_has_http_scheme(url) && url_is_local_address(url))
+            return g_strdup_printf("http://%s", url);
+        return g_strdup(url);
+    }
+    case STREAM_SERVICE_CUSTOM: {
+        const char *url = gtk_editable_get_text(GTK_EDITABLE(self->custom_url_row));
+        const char *key = gtk_editable_get_text(GTK_EDITABLE(self->custom_key_row));
+        if (!url || !url[0])
+            return g_strdup("");
+        GString *out = g_string_new(NULL);
         /* If no recognized scheme prefix, prepend rtmp:// */
-        if (g_str_has_prefix(url, "rtmp://")  ||
+        if (!(g_str_has_prefix(url, "rtmp://")  ||
             g_str_has_prefix(url, "rtmps://") ||
             g_str_has_prefix(url, "rtsp://")  ||
             g_str_has_prefix(url, "srt://")   ||
             g_str_has_prefix(url, "http://")  ||
             g_str_has_prefix(url, "https://") ||
             g_str_has_prefix(url, "tcp://")   ||
-            g_str_has_prefix(url, "udp://"))
-            return g_strdup(url);
-        return g_strdup_printf("rtmp://%s", url);
+            g_str_has_prefix(url, "udp://")))
+            g_string_append(out, "rtmp://");
+        g_string_append(out, url);
+        if (key && key[0]) {
+            char last = out->str[out->len - 1];
+            if (last != '/' && last != '=')
+                g_string_append_c(out, '/');
+            g_string_append(out, key);
+        }
+        return g_string_free(out, FALSE);
     }
+    case STREAM_SERVICE_COUNT:
+        break;
     }
     return g_strdup("");
 }
@@ -658,10 +855,43 @@ char *
 gsr_stream_page_get_container(GsrStreamPage *self)
 {
     StreamService svc = get_selected_service(self);
+    if (svc == STREAM_SERVICE_WHIP)
+        return g_strdup("whip");
     if (svc != STREAM_SERVICE_CUSTOM)
         return g_strdup("flv");
     return g_strdup(stream_container_display_to_id(
         combo_row_get_selected_string(self->container_row)));
+}
+
+const char *
+gsr_stream_page_get_forced_video_codec(GsrStreamPage *self)
+{
+    switch (get_selected_service(self)) {
+    case STREAM_SERVICE_RUMBLE:
+    case STREAM_SERVICE_KICK:
+        return "h264"; /* Rumble and Kick only accept h264 */
+    case STREAM_SERVICE_WHIP:
+        return "h264"; /* WHIP (WebRTC) in FFmpeg only supports h264 */
+    default:
+        return NULL;
+    }
+}
+
+const char *
+gsr_stream_page_get_forced_audio_codec(GsrStreamPage *self)
+{
+    if (get_selected_service(self) == STREAM_SERVICE_WHIP)
+        return "opus"; /* WHIP (WebRTC) only supports opus */
+    return NULL;
+}
+
+const char *
+gsr_stream_page_get_bearer_token(GsrStreamPage *self)
+{
+    if (get_selected_service(self) != STREAM_SERVICE_WHIP)
+        return NULL;
+    const char *token = gtk_editable_get_text(GTK_EDITABLE(self->whip_token_row));
+    return (token && token[0]) ? token : NULL;
 }
 
 void

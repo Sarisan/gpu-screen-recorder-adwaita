@@ -56,6 +56,10 @@ typedef struct {
 } GsrSupportedVideoCodecs;
 
 typedef struct {
+    bool whip;   /* requires gpu-screen-recorder built with FFmpeg >= 8.0 */
+} GsrSupportedContainers;
+
+typedef struct {
     char *name;       /* owned */
     int   width;
     int   height;
@@ -73,6 +77,7 @@ typedef struct {
     GsrSystemInfo               system_info;
     GsrGpuInfo                  gpu_info;
     GsrSupportedVideoCodecs     supported_video_codecs;
+    GsrSupportedContainers      supported_containers;
     GsrSupportedCaptureOptions  supported_capture_options;
 } GsrInfo;
 

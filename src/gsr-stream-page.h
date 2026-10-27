@@ -28,6 +28,18 @@ char          *gsr_stream_page_get_stream_url(GsrStreamPage *self);
 /* Get the container ID for -c argument. Caller must g_free(). */
 char          *gsr_stream_page_get_container (GsrStreamPage *self);
 
+/* Validate service settings before starting. On failure, returns FALSE and
+ * sets *error_message (caller must g_free()). */
+gboolean       gsr_stream_page_validate      (GsrStreamPage *self,
+                                              char         **error_message);
+
+/* Codec the selected service requires, or NULL if any codec works. */
+const char    *gsr_stream_page_get_forced_video_codec(GsrStreamPage *self);
+const char    *gsr_stream_page_get_forced_audio_codec(GsrStreamPage *self);
+
+/* WHIP bearer token, or NULL if unset / not using WHIP. */
+const char    *gsr_stream_page_get_bearer_token(GsrStreamPage *self);
+
 /* Hotkey: programmatically toggle start/stop. */
 void           gsr_stream_page_activate_start_stop(GsrStreamPage *self);
 

@@ -171,7 +171,13 @@ static const CfgEntry config_entries[] = {
     { "streaming.service",                        CFG_STRING,       CFG_OFF(streaming_config, streaming_service),    0 },
     { "streaming.youtube.key",                    CFG_STRING,       CFG_OFF(streaming_config, youtube_stream_key),   0 },
     { "streaming.twitch.key",                     CFG_STRING,       CFG_OFF(streaming_config, twitch_stream_key),    0 },
+    { "streaming.rumble.key",                     CFG_STRING,       CFG_OFF(streaming_config, rumble_stream_key),    0 },
+    { "streaming.kick.url",                       CFG_STRING,       CFG_OFF(streaming_config, kick_stream_url),      0 },
+    { "streaming.kick.key",                       CFG_STRING,       CFG_OFF(streaming_config, kick_stream_key),      0 },
+    { "streaming.whip.url",                       CFG_STRING,       CFG_OFF(streaming_config, whip_url),             0 },
+    { "streaming.whip.bearer_token",              CFG_STRING,       CFG_OFF(streaming_config, whip_bearer_token),    0 },
     { "streaming.custom.url",                     CFG_STRING,       CFG_OFF(streaming_config, custom_url),           0 },
+    { "streaming.custom.key",                     CFG_STRING,       CFG_OFF(streaming_config, custom_key),           0 },
     { "streaming.custom.container",               CFG_STRING,       CFG_OFF(streaming_config, custom_container),     0 },
     { "streaming.start_stop_recording_hotkey",    CFG_HOTKEY,       CFG_OFF(streaming_config, start_stop_hotkey),    0 },
 
@@ -252,7 +258,13 @@ gsr_config_init_defaults(GsrConfig *config)
     s->streaming_service = g_strdup("twitch");
     s->youtube_stream_key = g_strdup("");
     s->twitch_stream_key = g_strdup("");
+    s->rumble_stream_key = g_strdup("");
+    s->kick_stream_url = g_strdup("");
+    s->kick_stream_key = g_strdup("");
+    s->whip_url = g_strdup("");
+    s->whip_bearer_token = g_strdup("");
     s->custom_url = g_strdup("");
+    s->custom_key = g_strdup("");
     s->custom_container = g_strdup("flv");
     s->start_stop_hotkey = DEFAULT_HOTKEY_START_STOP;
 
@@ -452,7 +464,13 @@ gsr_config_clear(GsrConfig *config)
     g_free(s->streaming_service);
     g_free(s->youtube_stream_key);
     g_free(s->twitch_stream_key);
+    g_free(s->rumble_stream_key);
+    g_free(s->kick_stream_url);
+    g_free(s->kick_stream_key);
+    g_free(s->whip_url);
+    g_free(s->whip_bearer_token);
     g_free(s->custom_url);
+    g_free(s->custom_key);
     g_free(s->custom_container);
 
     g_free(config->record_config.save_directory);

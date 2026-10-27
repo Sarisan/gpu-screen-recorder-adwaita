@@ -66,10 +66,16 @@ typedef struct {
 } GsrMainConfig;
 
 typedef struct {
-    char *streaming_service;   /* "twitch", "youtube", "custom" */
+    char *streaming_service;   /* "twitch", "youtube", "rumble", "kick", "whip", "custom" */
     char *youtube_stream_key;
     char *twitch_stream_key;
+    char *rumble_stream_key;
+    char *kick_stream_url;
+    char *kick_stream_key;
+    char *whip_url;
+    char *whip_bearer_token;
     char *custom_url;
+    char *custom_key;
     char *custom_container;    /* "mp4", "flv", "matroska", etc. */
 
     GsrConfigHotkey start_stop_hotkey;

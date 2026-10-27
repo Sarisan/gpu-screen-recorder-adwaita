@@ -6,6 +6,8 @@
 #include <time.h>
 #include <unistd.h>
 
+extern char **environ;
+
 #include <glib/gi18n.h>
 
 #include "gsr-config-page.h"
@@ -302,6 +304,16 @@ build_command_args(GsrWindow *self, GsrActiveMode mode)
     gboolean use_software = FALSE;
     resolve_codec_and_encoder(self, &codec, &use_software);
 
+    const char *audio_codec = gsr_config_page_get_audio_codec_id(self->config_page);
+    if (mode == GSR_ACTIVE_MODE_STREAM) {
+        const char *forced = gsr_stream_page_get_forced_video_codec(self->stream_page);
+        if (forced)
+            codec = forced;
+        forced = gsr_stream_page_get_forced_audio_codec(self->stream_page);
+        if (forced)
+            audio_codec = forced;
+    }
+
     /* ── Container (mode-specific, with compat fix) ─── */
     char *container_owned = NULL;
     const char *container = NULL;
@@ -324,7 +336,9 @@ build_command_args(GsrWindow *self, GsrActiveMode mode)
         break;
     }
 
-    container = fix_container_for_codec(container, codec);
+    /* gpu-screen-recorder picks a WHIP-compatible codec on its own */
+    if (!g_str_equal(container, "whip"))
+        container = fix_container_for_codec(container, codec);
 
     g_ptr_array_add(args, g_strdup("-c"));
     g_ptr_array_add(args, g_strdup(container));
@@ -334,7 +348,7 @@ build_command_args(GsrWindow *self, GsrActiveMode mode)
 
     /* Audio codec */
     g_ptr_array_add(args, g_strdup("-ac"));
-    g_ptr_array_add(args, g_strdup(gsr_config_page_get_audio_codec_id(self->config_page)));
+    g_ptr_array_add(args, g_strdup(audio_codec));
 
     /* FPS */
     g_ptr_array_add(args, g_strdup("-f"));
@@ -449,7 +463,7 @@ build_command_args(GsrWindow *self, GsrActiveMode mode)
 /* ── fork/exec ───────────────────────────────────────────────────── */
 
 static gboolean
-start_child_process(GsrWindow *self, GPtrArray *args)
+start_child_process(GsrWindow *self, GPtrArray *args, char **envp)
 {
     pid_t pid = fork();
     if (pid == -1) {
@@ -462,6 +476,8 @@ start_child_process(GsrWindow *self, GPtrArray *args)
 #ifdef __linux__
         prctl(PR_SET_PDEATHSIG, SIGTERM);
 #endif
+        if (envp)
+            environ = envp;
         execvp(g_ptr_array_index(args, 0), (char **)args->pdata);
         /* If execvp returns, it failed */
         _exit(127);
@@ -1053,6 +1069,16 @@ gsr_window_start_process(GsrWindow *self, GsrActiveMode mode)
         return FALSE;
     }
 
+    if (mode == GSR_ACTIVE_MODE_STREAM) {
+        g_autofree char *error = NULL;
+        if (!gsr_stream_page_validate(self->stream_page, &error)) {
+            g_autofree char *msg = g_strdup_printf(_("Failed to start streaming: %s"), error);
+            send_notification(self, "GPU Screen Recorder", msg,
+                G_NOTIFICATION_PRIORITY_URGENT);
+            return FALSE;
+        }
+    }
+
     /* Build command line */
     GPtrArray *args = build_command_args(self, mode);
     if (!args) {
@@ -1062,8 +1088,18 @@ gsr_window_start_process(GsrWindow *self, GsrActiveMode mode)
         return FALSE;
     }
 
+    /* The WHIP bearer token goes through the environment rather than argv so
+     * it isn't visible to other processes in the process list. The environment
+     * is built before fork() since setenv() isn't async-signal-safe. */
+    g_auto(GStrv) envp = NULL;
+    if (mode == GSR_ACTIVE_MODE_STREAM) {
+        const char *token = gsr_stream_page_get_bearer_token(self->stream_page);
+        if (token)
+            envp = g_environ_setenv(g_get_environ(), "GSR_AUTH", token, TRUE);
+    }
+
     /* Fork/exec */
-    gboolean ok = start_child_process(self, args);
+    gboolean ok = start_child_process(self, args, envp);
     g_ptr_array_unref(args);
 
     if (!ok) {

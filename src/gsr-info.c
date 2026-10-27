@@ -77,6 +77,7 @@ typedef enum {
     SECTION_SYSTEM_INFO,
     SECTION_GPU_INFO,
     SECTION_VIDEO_CODECS,
+    SECTION_CONTAINERS,
     SECTION_CAPTURE_OPTIONS,
 } InfoSection;
 
@@ -153,6 +154,13 @@ parse_video_codecs(ParseState *st, const char *line, size_t len)
 }
 
 static void
+parse_containers(ParseState *st, const char *line, size_t len)
+{
+    if (str_eq(line, len, "whip"))
+        st->info->supported_containers.whip = true;
+}
+
+static void
 parse_capture_options(ParseState *st, const char *line, size_t len)
 {
     if (str_eq(line, len, "window")) {
@@ -199,6 +207,8 @@ info_line_cb(const char *line, size_t len, void *user_data)
             st->section = SECTION_GPU_INFO;
         else if (str_eq(name, nlen, "video_codecs"))
             st->section = SECTION_VIDEO_CODECS;
+        else if (str_eq(name, nlen, "containers"))
+            st->section = SECTION_CONTAINERS;
         else if (str_eq(name, nlen, "capture_options"))
             st->section = SECTION_CAPTURE_OPTIONS;
         else
@@ -210,6 +220,7 @@ info_line_cb(const char *line, size_t len, void *user_data)
     case SECTION_SYSTEM_INFO:     parse_system_info(st, line, len);     break;
     case SECTION_GPU_INFO:        parse_gpu_info(st, line, len);        break;
     case SECTION_VIDEO_CODECS:    parse_video_codecs(st, line, len);    break;
+    case SECTION_CONTAINERS:      parse_containers(st, line, len);      break;
     case SECTION_CAPTURE_OPTIONS: parse_capture_options(st, line, len); break;
     case SECTION_UNKNOWN:         break;
     }
