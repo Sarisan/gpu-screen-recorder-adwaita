@@ -70,7 +70,7 @@ struct _GsrStreamPage {
     AdwPasswordEntryRow *kick_key_row;
     AdwEntryRow         *whip_url_row;
     AdwPasswordEntryRow *whip_token_row;
-    AdwPasswordEntryRow *custom_url_row;
+    AdwEntryRow         *custom_url_row;
     AdwPasswordEntryRow *custom_key_row;
     AdwComboRow         *container_row;
 
@@ -416,7 +416,7 @@ build_service_group(GsrStreamPage *self)
         GTK_WIDGET(self->whip_token_row));
 
     /* Custom URL */
-    self->custom_url_row = ADW_PASSWORD_ENTRY_ROW(adw_password_entry_row_new());
+    self->custom_url_row = ADW_ENTRY_ROW(adw_entry_row_new());
     adw_preferences_row_set_title(ADW_PREFERENCES_ROW(self->custom_url_row),
         _("URL"));
     gtk_widget_set_visible(GTK_WIDGET(self->custom_url_row), FALSE);
