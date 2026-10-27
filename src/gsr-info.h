@@ -69,6 +69,7 @@ typedef struct {
     bool         window;
     bool         focused;
     bool         portal;
+    bool         region;
     GsrMonitor  *monitors;    /* owned array */
     int          n_monitors;
 } GsrSupportedCaptureOptions;
