@@ -24,8 +24,8 @@ typedef struct _GsrX11WindowPicker GsrX11WindowPicker;
  */
 typedef struct {
     Window  window;     /* X11 window ID, or None on cancel */
-    char   *name;       /* Window name (heap-allocated), or NULL on cancel.
-                           Caller must g_free() / free(). */
+    char   *name;       /* Window name, or NULL on cancel. Borrowed: only
+                           valid during the callback; g_strdup() to keep. */
 } GsrX11WindowPickResult;
 
 /**

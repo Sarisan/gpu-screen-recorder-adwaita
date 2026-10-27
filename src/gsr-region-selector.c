@@ -103,8 +103,10 @@ static void
 selector_complete(Selector *sel, const GdkRectangle *region, GError *error)
 {
     GTask *task = g_steal_pointer(&sel->task);
-    if (!task)
-        return; /* already completed */
+    if (!task) {
+        g_clear_error(&error); /* already completed */
+        return;
+    }
 
     /* Hide now so the overlays are gone before capture starts. The windows
      * are destroyed in selector_free when the task is finalized, which may
@@ -314,6 +316,15 @@ on_key_pressed(GtkEventControllerKey *controller G_GNUC_UNUSED,
     return TRUE;
 }
 
+/* Closing an overlay through the window manager (e.g. Alt+F4) counts as
+ * cancelling; otherwise GTK would destroy the window under us. */
+static gboolean
+on_close_request(GtkWindow *window G_GNUC_UNUSED, gpointer user_data)
+{
+    selector_cancel(user_data);
+    return TRUE;
+}
+
 static void
 on_cancellable_cancelled(GCancellable *cancellable G_GNUC_UNUSED,
                          gpointer      user_data)
@@ -365,6 +376,8 @@ overlay_new(Selector *sel, GdkMonitor *monitor)
     GtkEventController *keys = gtk_event_controller_key_new();
     g_signal_connect(keys, "key-pressed", G_CALLBACK(on_key_pressed), sel);
     gtk_widget_add_controller(GTK_WIDGET(ov->window), keys);
+
+    g_signal_connect(ov->window, "close-request", G_CALLBACK(on_close_request), sel);
 
     return ov;
 }

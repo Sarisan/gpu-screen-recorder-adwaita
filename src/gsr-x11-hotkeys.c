@@ -13,7 +13,7 @@
 #define MAX_GRABBED_COMBOS 16
 
 struct _GsrX11Hotkeys {
-    Display              *display;
+    Display              *display;      /* owned; separate from GDK's */
     Window                root;
     unsigned int          numlockmask;
 
@@ -68,26 +68,31 @@ key_state_without_locks(unsigned int state)
 
 /* ── GSource callbacks for X fd polling ──────────────────────────── */
 
+typedef struct {
+    GSource        source;
+    GsrX11Hotkeys *hotkeys;
+} X11Source;
+
 static gboolean
-x11_source_prepare(GSource *source G_GNUC_UNUSED, gint *timeout)
+x11_source_prepare(GSource *source, gint *timeout)
 {
     *timeout = -1;
-    return FALSE;
+    /* Events may already be queued in Xlib without the fd being readable */
+    return XPending(((X11Source *)source)->hotkeys->display) > 0;
 }
 
 static gboolean
-x11_source_check(GSource *source G_GNUC_UNUSED)
+x11_source_check(GSource *source)
 {
-    /* We just wake up; dispatch will check for events */
-    return TRUE;
+    return XPending(((X11Source *)source)->hotkeys->display) > 0;
 }
 
 static gboolean
-x11_source_dispatch(GSource *source G_GNUC_UNUSED,
+x11_source_dispatch(GSource *source,
                     GSourceFunc callback G_GNUC_UNUSED,
-                    gpointer user_data)
+                    gpointer user_data G_GNUC_UNUSED)
 {
-    GsrX11Hotkeys *self = user_data;
+    GsrX11Hotkeys *self = ((X11Source *)source)->hotkeys;
 
     while (XPending(self->display)) {
         XEvent ev;
@@ -124,16 +129,25 @@ static GSourceFuncs x11_source_funcs = {
 /* ── Public API ──────────────────────────────────────────────────── */
 
 GsrX11Hotkeys *
-gsr_x11_hotkeys_new(Display *display,
+gsr_x11_hotkeys_new(const char *display_name,
                      GsrX11HotkeyCallback callback,
                      void *userdata)
 {
-    if (!display || !callback)
+    if (!callback)
+        return NULL;
+
+    /* Use our own connection: reading events from GDK's Display would
+     * steal events GTK needs and leave windows unpainted or frozen. Key
+     * grabs are delivered to the connection that made them. */
+    Display *display = XOpenDisplay(display_name);
+    if (!display)
         return NULL;
 
     GsrX11Hotkeys *self = calloc(1, sizeof(GsrX11Hotkeys));
-    if (!self)
+    if (!self) {
+        XCloseDisplay(display);
         return NULL;
+    }
 
     self->display      = display;
     self->root         = DefaultRootWindow(display);
@@ -144,8 +158,8 @@ gsr_x11_hotkeys_new(Display *display,
 
     /* Create a GSource that polls the X connection fd */
     int x_fd = ConnectionNumber(display);
-    self->source = g_source_new(&x11_source_funcs, sizeof(GSource));
-    g_source_set_callback(self->source, NULL, self, NULL);
+    self->source = g_source_new(&x11_source_funcs, sizeof(X11Source));
+    ((X11Source *)self->source)->hotkeys = self;
     g_source_add_unix_fd(self->source, x_fd, G_IO_IN | G_IO_HUP | G_IO_ERR);
     self->source_id = g_source_attach(self->source, NULL);
 
@@ -165,6 +179,7 @@ gsr_x11_hotkeys_free(GsrX11Hotkeys *self)
         g_clear_pointer(&self->source, g_source_unref);
     }
 
+    XCloseDisplay(self->display);
     free(self);
 }
 

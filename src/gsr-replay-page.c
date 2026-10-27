@@ -404,7 +404,7 @@ build_output_group(GsrReplayPage *self)
     adw_preferences_row_set_title(ADW_PREFERENCES_ROW(self->container_row),
         _("Container"));
 
-    GtkStringList *ct_model = gtk_string_list_new(NULL);
+    g_autoptr(GtkStringList) ct_model = gtk_string_list_new(NULL);
     const char *containers[] = {
         "mp4", "flv", "mkv", "mov", "ts", "m3u8", NULL
     };

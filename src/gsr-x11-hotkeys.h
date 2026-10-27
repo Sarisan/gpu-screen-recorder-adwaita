@@ -20,11 +20,12 @@ typedef struct {
 typedef struct _GsrX11Hotkeys GsrX11Hotkeys;
 
 /**
- * Create a new X11 hotkey watcher on the given display.
+ * Create a new X11 hotkey watcher on its own connection to the named
+ * display (NULL for $DISPLAY). It must not share GDK's connection.
  * The callback fires on KeyRelease matching any grabbed combo.
  * Returns NULL on failure.
  */
-GsrX11Hotkeys *gsr_x11_hotkeys_new(Display *display,
+GsrX11Hotkeys *gsr_x11_hotkeys_new(const char *display_name,
                                     GsrX11HotkeyCallback callback,
                                     void *userdata);
 

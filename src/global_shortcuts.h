@@ -27,6 +27,8 @@ typedef struct {
     bool session_created;
     char random_str[DBUS_RANDOM_STR_SIZE + 1];
     unsigned int handle_counter;
+    guint activated_signal_id;   /* GlobalShortcuts signal subscription */
+    GSList *pending_requests;    /* GDBusProxy*, portal requests awaiting Response */
 } gsr_global_shortcuts;
 
 bool gsr_global_shortcuts_init(gsr_global_shortcuts *self, gsr_init_callback callback, void *userdata);

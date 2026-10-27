@@ -401,7 +401,7 @@ build_audio_group(GsrConfigPage *self)
     /* Audio codec */
     self->audio_codec_row = ADW_COMBO_ROW(adw_combo_row_new());
     adw_preferences_row_set_title(ADW_PREFERENCES_ROW(self->audio_codec_row), _("Audio codec"));
-    GtkStringList *ac_model = gtk_string_list_new(
+    g_autoptr(GtkStringList) ac_model = gtk_string_list_new(
         (const char *const[]){ _("Opus (Recommended)"), _("AAC"), NULL });
     adw_combo_row_set_model(self->audio_codec_row, G_LIST_MODEL(ac_model));
     adw_combo_row_set_selected(self->audio_codec_row, 0);
@@ -559,7 +559,7 @@ build_video_group(GsrConfigPage *self)
     /* Quality */
     self->quality_row = ADW_COMBO_ROW(adw_combo_row_new());
     adw_preferences_row_set_title(ADW_PREFERENCES_ROW(self->quality_row), _("Video quality"));
-    GtkStringList *q_model = gtk_string_list_new((const char *const[]){
+    g_autoptr(GtkStringList) q_model = gtk_string_list_new((const char *const[]){
         _("Constant bitrate"),
         _("Medium"), _("High"),
         _("Very High"),
@@ -619,7 +619,7 @@ build_video_group(GsrConfigPage *self)
     /* Color range */
     self->color_range_row = ADW_COMBO_ROW(adw_combo_row_new());
     adw_preferences_row_set_title(ADW_PREFERENCES_ROW(self->color_range_row), _("Color range"));
-    GtkStringList *cr_model = gtk_string_list_new(
+    g_autoptr(GtkStringList) cr_model = gtk_string_list_new(
         (const char *const[]){ _("Limited"), _("Full"), NULL });
     adw_combo_row_set_model(self->color_range_row, G_LIST_MODEL(cr_model));
     adw_combo_row_set_selected(self->color_range_row, 0);
@@ -635,7 +635,7 @@ build_video_group(GsrConfigPage *self)
     /* Framerate mode */
     self->framerate_mode_row = ADW_COMBO_ROW(adw_combo_row_new());
     adw_preferences_row_set_title(ADW_PREFERENCES_ROW(self->framerate_mode_row), _("Frame rate mode"));
-    GtkStringList *fm_model = gtk_string_list_new(
+    g_autoptr(GtkStringList) fm_model = gtk_string_list_new(
         (const char *const[]){ _("Auto (Recommended)"), _("Constant"), _("Variable"), NULL });
     adw_combo_row_set_model(self->framerate_mode_row, G_LIST_MODEL(fm_model));
     adw_combo_row_set_selected(self->framerate_mode_row, 0);
@@ -699,6 +699,8 @@ gsr_config_page_finalize(GObject *object)
 
     g_strfreev(self->record_area_ids);
     g_strfreev(self->video_codec_ids);
+    g_clear_object(&self->record_area_model);
+    g_clear_object(&self->video_codec_model);
 
     /* Window picker cleanup */
 #ifdef HAVE_X11

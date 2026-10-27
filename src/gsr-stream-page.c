@@ -346,7 +346,7 @@ build_service_group(GsrStreamPage *self)
     self->service_row = ADW_COMBO_ROW(adw_combo_row_new());
     adw_preferences_row_set_title(ADW_PREFERENCES_ROW(self->service_row),
         _("Service"));
-    GtkStringList *svc_model = gtk_string_list_new(NULL);
+    g_autoptr(GtkStringList) svc_model = gtk_string_list_new(NULL);
     self->n_services = 0;
     for (int i = 0; i < STREAM_SERVICE_COUNT; i++) {
         /* WHIP requires gpu-screen-recorder built with FFmpeg 8.0 or later */
@@ -436,7 +436,7 @@ build_service_group(GsrStreamPage *self)
     adw_preferences_row_set_title(ADW_PREFERENCES_ROW(self->container_row),
         _("Container"));
 
-    GtkStringList *ct_model = gtk_string_list_new(NULL);
+    g_autoptr(GtkStringList) ct_model = gtk_string_list_new(NULL);
     const char *containers[] = {
         "mp4", "flv", "mkv", "mov", "ts", "m3u8", NULL
     };
