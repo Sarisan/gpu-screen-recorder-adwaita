@@ -924,8 +924,10 @@ gsr_window_init(GsrWindow *self)
         GTK_WIDGET(self->header_title_label), "title");
 
     self->header_bar = ADW_HEADER_BAR(adw_header_bar_new());
+    /* Loose centering lets the switcher use the space on the left instead of
+     * reserving a block as wide as the end widgets (menu + window buttons). */
     adw_header_bar_set_centering_policy(self->header_bar,
-        ADW_CENTERING_POLICY_STRICT);
+        ADW_CENTERING_POLICY_LOOSE);
     adw_header_bar_set_title_widget(self->header_bar,
         GTK_WIDGET(self->header_title_stack));
 
@@ -956,9 +958,11 @@ gsr_window_init(GsrWindow *self)
     adw_application_window_set_content(ADW_APPLICATION_WINDOW(self),
         GTK_WIDGET(toolbar_view));
 
-    /* ── Breakpoint: narrow window → show title label in header, show bottom bar ─── */
+    /* ── Breakpoint: narrow window → show title label in header, show bottom bar ───
+     * The header switcher needs ~700px for all four labels next to the menu and
+     * minimize/maximize/close buttons; below that its labels would ellipsize. */
     AdwBreakpoint *bp = adw_breakpoint_new(
-        adw_breakpoint_condition_parse("max-width: 550sp"));
+        adw_breakpoint_condition_parse("max-width: 720sp"));
     adw_breakpoint_add_setters(bp,
         G_OBJECT(self->header_title_stack), "visible-child-name", "title",
         G_OBJECT(self->view_switcher_bar), "reveal", TRUE,
