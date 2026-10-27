@@ -75,6 +75,7 @@ struct _GsrWindow {
     gboolean            has_region;         /* region picked, not yet used */
     GdkRectangle        region;
     GsrActiveMode       region_mode;        /* mode to start once picked */
+    guint               region_start_id;    /* delayed start after picking */
 
     /* ── Desktop notifications ─── */
     gboolean            showing_notification;
@@ -1033,6 +1034,7 @@ gsr_window_finalize(GObject *object)
 
     g_clear_handle_id(&self->startup_idle_id, g_source_remove);
 
+    g_clear_handle_id(&self->region_start_id, g_source_remove);
     g_clear_handle_id(&self->poll_timer_id, g_source_remove);
 
     g_clear_handle_id(&self->notification_timeout_id, g_source_remove);
@@ -1092,16 +1094,16 @@ activate_start_stop_for_mode(GsrWindow *self, GsrActiveMode mode)
     }
 }
 
-static gboolean
+static void
 on_region_start_timeout(gpointer user_data)
 {
     GsrWindow *self = GSR_WINDOW(user_data);
+    self->region_start_id = 0;
 
     /* Re-run the page's normal start path. Button activation emits "clicked"
      * only after its pressed animation, so leave has_region for
      * start_process to consume rather than clearing it here. */
     activate_start_stop_for_mode(self, self->region_mode);
-    return G_SOURCE_REMOVE;
 }
 
 static void
@@ -1124,8 +1126,8 @@ on_region_selected(GObject      *source G_GNUC_UNUSED,
     /* Give the compositor a moment to unmap the overlays so they don't
      * end up in the first frames of the capture. */
     self->has_region = TRUE;
-    g_timeout_add_full(G_PRIORITY_DEFAULT, 250, on_region_start_timeout,
-                       g_object_ref(self), g_object_unref);
+    g_clear_handle_id(&self->region_start_id, g_source_remove);
+    self->region_start_id = g_timeout_add_once(250, on_region_start_timeout, self);
 }
 
 gboolean

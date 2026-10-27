@@ -106,15 +106,15 @@ selector_complete(Selector *sel, const GdkRectangle *region, GError *error)
     if (!task)
         return; /* already completed */
 
-    /* Hide now, destroy on idle: we may be inside one of the overlays'
-     * own gesture handlers. */
+    /* Hide now so the overlays are gone before capture starts. The windows
+     * are destroyed in selector_free when the task is finalized, which may
+     * happen inside an overlay's own gesture handler; GTK keeps the widgets
+     * alive for the duration of event dispatch, so that is safe. */
     sel->active = NULL;
-    GPtrArray *overlays = g_steal_pointer(&sel->overlays);
-    for (guint i = 0; i < overlays->len; i++) {
-        Overlay *ov = g_ptr_array_index(overlays, i);
+    for (guint i = 0; i < sel->overlays->len; i++) {
+        Overlay *ov = g_ptr_array_index(sel->overlays, i);
         gtk_widget_set_visible(GTK_WIDGET(ov->window), FALSE);
     }
-    g_idle_add_once((GSourceOnceFunc)g_ptr_array_unref, overlays);
 
     if (region)
         g_task_return_pointer(task, g_memdup2(region, sizeof(*region)), g_free);
@@ -164,7 +164,7 @@ static void
 draw_label(GtkWidget *widget, cairo_t *cr, const char *text,
            double x, double y, int max_width, int max_height)
 {
-    PangoLayout *layout = gtk_widget_create_pango_layout(widget, text);
+    g_autoptr(PangoLayout) layout = gtk_widget_create_pango_layout(widget, text);
     int tw, th;
     pango_layout_get_pixel_size(layout, &tw, &th);
 
@@ -186,7 +186,6 @@ draw_label(GtkWidget *widget, cairo_t *cr, const char *text,
     cairo_set_source_rgba(cr, 1, 1, 1, 1);
     cairo_move_to(cr, x + pad, y + pad);
     pango_cairo_show_layout(cr, layout);
-    g_object_unref(layout);
 }
 
 static void
@@ -225,10 +224,9 @@ overlay_draw(GtkDrawingArea *area, cairo_t *cr, int width, int height,
     if (!selecting) {
         const char *hint =
             _("Drag to select an area · Click to select the whole monitor · Esc to cancel");
-        PangoLayout *layout = gtk_widget_create_pango_layout(GTK_WIDGET(area), hint);
+        g_autoptr(PangoLayout) layout = gtk_widget_create_pango_layout(GTK_WIDGET(area), hint);
         int tw, th;
         pango_layout_get_pixel_size(layout, &tw, &th);
-        g_object_unref(layout);
         draw_label(GTK_WIDGET(area), cr, hint,
                    (width - tw) / 2.0 - 6, height * 0.1, width, height);
         return;
@@ -426,7 +424,7 @@ on_capture_done(GObject *source, GAsyncResult *result, gpointer user_data)
         selector_show(sel);
 }
 
-static gboolean
+static void
 on_capture_timeout(gpointer user_data)
 {
     Selector *sel = user_data;
@@ -439,7 +437,6 @@ on_capture_timeout(gpointer user_data)
         if (ov->capture)
             g_subprocess_force_exit(ov->capture);
     }
-    return G_SOURCE_REMOVE;
 }
 
 /* Start capturing one monitor with gpu-screen-recorder; matched by connector
@@ -511,7 +508,7 @@ gsr_region_selector_select_async(GdkDisplay          *display,
     if (sel->pending_captures == 0)
         selector_show(sel);
     else
-        sel->capture_timeout_id = g_timeout_add(CAPTURE_TIMEOUT_MS, on_capture_timeout, sel);
+        sel->capture_timeout_id = g_timeout_add_once(CAPTURE_TIMEOUT_MS, on_capture_timeout, sel);
 }
 
 gboolean
