@@ -576,36 +576,30 @@ build_video_group(GsrConfigPage *self)
     self->n_video_codec_ids = 0;
     int vc_cap = 0;
 
-    struct { const char *id; const char *label_ok; const char *label_na; } codecs[] = {
-        { "auto",          _("Auto"), NULL },
-        { "h264",          _("H.264"),
-                           _("H.264 (N/A)") },
-        { "hevc",          _("HEVC"),
-                           _("HEVC (N/A)") },
-        { "hevc_10bit",    _("HEVC 10-bit"),
-                           _("HEVC 10-bit (N/A)") },
+    struct { const char *id; const char *label; } codecs[] = {
+        { "auto",          _("Auto") },
+        { "h264",          _("H.264") },
+        { "hevc",          _("HEVC") },
+        { "hevc_10bit",    _("HEVC 10-bit") },
         { "hevc_hdr",
             info->system_info.display_server == GSR_DISPLAY_SERVER_WAYLAND
-                ? _("HEVC HDR") : _("HEVC HDR (X11 N/A)"),
-            _("HEVC HDR (N/A)") },
-        { "av1",           _("AV1"),
-                           _("AV1 (N/A)") },
-        { "av1_10bit",     _("AV1 10-bit"),
-                           _("AV1 10-bit (N/A)") },
+                ? _("HEVC HDR") : _("HEVC HDR (X11 N/A)") },
+        { "av1",           _("AV1") },
+        { "av1_10bit",     _("AV1 10-bit") },
         { "av1_hdr",
             info->system_info.display_server == GSR_DISPLAY_SERVER_WAYLAND
-                ? _("AV1 HDR") : _("AV1 HDR (X11 N/A)"),
-            _("AV1 HDR (N/A)") },
-        { "vp8",           _("VP8"),  _("VP8 (N/A)") },
-        { "vp9",           _("VP9"),  _("VP9 (N/A)") },
-        { "h264_software", _("H.264 Software (slow)"),
-                           _("H.264 Software (N/A)") },
+                ? _("AV1 HDR") : _("AV1 HDR (X11 N/A)") },
+        { "vp8",           _("VP8") },
+        { "vp9",           _("VP9") },
+        { "h264_software", _("H.264 Software (slow)") },
     };
 
+    /* Only list codecs this system can encode. A saved codec that is no
+     * longer listed falls back to "auto" in apply_config. */
     for (size_t i = 0; i < G_N_ELEMENTS(codecs); i++) {
-        bool ok = gsr_info_is_codec_supported(info, codecs[i].id);
-        const char *label = (ok || !codecs[i].label_na) ? codecs[i].label_ok : codecs[i].label_na;
-        gtk_string_list_append(self->video_codec_model, label);
+        if (!gsr_info_is_codec_supported(info, codecs[i].id))
+            continue;
+        gtk_string_list_append(self->video_codec_model, codecs[i].label);
         ids_array_append(&self->video_codec_ids, &self->n_video_codec_ids, &vc_cap, codecs[i].id);
     }
 
