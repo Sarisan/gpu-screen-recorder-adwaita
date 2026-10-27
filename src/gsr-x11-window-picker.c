@@ -173,6 +173,7 @@ finish_pick(GsrX11WindowPicker *self, Window window, char *name)
         .name   = name,
     };
     self->callback(&result, self->userdata);
+    g_free(name); /* callback copies what it keeps */
 
     /* Self-destroy after callback */
     gsr_x11_window_picker_free(self);

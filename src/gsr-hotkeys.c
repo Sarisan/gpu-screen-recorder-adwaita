@@ -18,9 +18,6 @@
 #include <X11/keysym.h>
 
 #include "gsr-x11-hotkeys.h"
-#ifdef GDK_WINDOWING_X11
-#include <gdk/x11/gdkx.h>
-#endif
 #endif /* HAVE_X11 */
 
 #ifdef HAVE_WAYLAND
@@ -69,7 +66,8 @@ struct _GsrHotkeys {
 #ifdef HAVE_WAYLAND
     /* Wayland backend */
     gsr_global_shortcuts  wayland;
-    bool                  wayland_initialized;
+    bool                  wayland_started;      /* init succeeded; needs deinit */
+    bool                  wayland_initialized;  /* portal session created */
     bool                  wayland_shortcuts_bound;
     bool                  wayland_shortcuts_received;
 #endif /* HAVE_WAYLAND */
@@ -244,10 +242,7 @@ gsr_hotkeys_new(GsrDisplayServer display_server, GsrWindow *window)
 
 #ifdef HAVE_X11
     if (display_server == GSR_DISPLAY_SERVER_X11) {
-        /*
-         * Get the X11 Display from GDK.
-         * We use gdk_x11_display_get_xdisplay() from <gdk/x11/gdkx.h>.
-         */
+        /* Hotkeys get their own connection to the same display as GDK */
         GdkDisplay *gdk_dpy = gdk_display_get_default();
         if (!gdk_dpy) {
             fprintf(stderr, "gsr warning: no default GDK display\n");
@@ -255,23 +250,8 @@ gsr_hotkeys_new(GsrDisplayServer display_server, GsrWindow *window)
             return NULL;
         }
 
-        /* GTK4 X11 backend */
-        Display *xdisplay = NULL;
-
-        /* Use the GDK X11 function if available */
-#ifdef GDK_WINDOWING_X11
-        G_GNUC_BEGIN_IGNORE_DEPRECATIONS
-        xdisplay = gdk_x11_display_get_xdisplay(gdk_dpy);
-        G_GNUC_END_IGNORE_DEPRECATIONS
-#endif
-
-        if (!xdisplay) {
-            fprintf(stderr, "gsr warning: could not get X11 display from GDK\n");
-            free(self);
-            return NULL;
-        }
-
-        self->x11 = gsr_x11_hotkeys_new(xdisplay, on_x11_hotkey, self);
+        self->x11 = gsr_x11_hotkeys_new(gdk_display_get_name(gdk_dpy),
+                                        on_x11_hotkey, self);
         if (!self->x11) {
             fprintf(stderr, "gsr warning: failed to create X11 hotkey watcher\n");
             free(self);
@@ -286,7 +266,9 @@ gsr_hotkeys_new(GsrDisplayServer display_server, GsrWindow *window)
 #ifdef HAVE_WAYLAND
     if (display_server == GSR_DISPLAY_SERVER_WAYLAND) {
         /* TODO: Skip Hyprland due to portal crash bug */
-        if (!gsr_global_shortcuts_init(&self->wayland, on_wayland_init, self)) {
+        self->wayland_started =
+            gsr_global_shortcuts_init(&self->wayland, on_wayland_init, self);
+        if (!self->wayland_started) {
             fprintf(stderr, "gsr warning: failed to initialize Wayland global shortcuts\n");
             /* Non-fatal: hotkeys just won't work */
         }
@@ -307,10 +289,10 @@ gsr_hotkeys_free(GsrHotkeys *self)
 #endif
 
 #ifdef HAVE_WAYLAND
-    if (self->wayland_initialized) {
+    /* Also when the session request is still pending, so its response
+     * can't call back into this struct after it is freed */
+    if (self->wayland_started)
         gsr_global_shortcuts_deinit(&self->wayland);
-        self->wayland_initialized = false;
-    }
 #endif
 
     free(self);

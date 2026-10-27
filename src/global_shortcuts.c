@@ -58,11 +58,46 @@ typedef struct {
     void *userdata;
 } signal_list_bind_userdata;
 
-static void dbus_signal_list_bind(GDBusProxy *proxy, gchar *sender_name, gchar *signal_name, GVariant *parameters, signal_list_bind_userdata *userdata) {
-    (void)proxy;
+/* Portal methods answer through a Response signal on a Request object.
+ * Keep each Request proxy until it responds, so deinit can drop the ones
+ * still pending and no late Response calls back into a freed owner.
+ * Dropping a proxy disconnects its handler, which frees the userdata. */
+static void free_request_userdata(gpointer data, GClosure *closure) {
+    (void)closure;
+    free(data);
+}
+
+static bool watch_request(gsr_global_shortcuts *self, const char *request_path, GCallback handler, void *cu) {
+    /* Request objects have no properties; skip the GetAll round-trip */
+    GDBusProxy *proxy = g_dbus_proxy_new_for_bus_sync(G_BUS_TYPE_SESSION, G_DBUS_PROXY_FLAGS_DO_NOT_AUTO_START | G_DBUS_PROXY_FLAGS_DO_NOT_LOAD_PROPERTIES, NULL, "org.freedesktop.portal.Desktop", request_path, "org.freedesktop.portal.Request", NULL, NULL);
+    if(!proxy) {
+        free(cu);
+        return false;
+    }
+    g_signal_connect_data(proxy, "g-signal", handler, cu, free_request_userdata, G_CONNECT_DEFAULT);
+    self->pending_requests = g_slist_prepend(self->pending_requests, proxy);
+    return true;
+}
+
+static void request_done(gsr_global_shortcuts *self, GDBusProxy *proxy) {
+    /* A callback may already have run deinit, which dropped the proxy */
+    GSList *link = g_slist_find(self->pending_requests, proxy);
+    if(!link)
+        return;
+    self->pending_requests = g_slist_delete_link(self->pending_requests, link);
+    g_object_unref(proxy);
+}
+
+static void dbus_signal_list_bind(GDBusProxy *proxy, gchar *sender_name, gchar *signal_name, GVariant *parameters, signal_list_bind_userdata *cu) {
     (void)sender_name;
     if(g_strcmp0(signal_name, "Response") != 0)
-        goto done;
+        return;
+
+    /* Finish the request before calling out: the callback may tear down
+     * the owner, so nothing here may touch |cu| or |self| after it. */
+    gsr_shortcut_callback callback = cu->callback;
+    void *callback_userdata = cu->userdata;
+    request_done(cu->self, proxy);
 
     guint32 response = 0;
     GVariant *results = NULL;
@@ -70,21 +105,18 @@ static void dbus_signal_list_bind(GDBusProxy *proxy, gchar *sender_name, gchar *
 
     if(response != 0 || !results) {
         if(results) g_variant_unref(results);
-        goto done;
+        return;
     }
 
     GVariant *shortcuts = g_variant_lookup_value(results, "shortcuts", G_VARIANT_TYPE("a(sa{sv})"));
     if(!shortcuts) {
         g_variant_unref(results);
-        goto done;
+        return;
     }
 
-    handle_shortcuts_data(shortcuts, userdata->callback, userdata->userdata);
+    handle_shortcuts_data(shortcuts, callback, callback_userdata);
     g_variant_unref(shortcuts);
     g_variant_unref(results);
-
-    done:
-    free(userdata);
 }
 
 typedef struct {
@@ -144,34 +176,34 @@ typedef struct {
 } signal_create_session_userdata;
 
 static void dbus_signal_create_session(GDBusProxy *proxy, gchar *sender_name, gchar *signal_name, GVariant *parameters, signal_create_session_userdata *cu) {
-    (void)proxy;
     (void)sender_name;
     if(g_strcmp0(signal_name, "Response") != 0)
-        goto done;
+        return;
+
+    /* Finish the request before calling out: the callback may tear down
+     * the owner, so the callback must be the last thing touched. */
+    gsr_global_shortcuts *self = cu->self;
+    gsr_init_callback callback = cu->callback;
+    void *callback_userdata = cu->userdata;
+    request_done(self, proxy);
 
     guint32 response = 0;
     GVariant *results = NULL;
     g_variant_get(parameters, "(u@a{sv})", &response, &results);
 
-    if(response != 0 || !results) {
-        cu->callback(false, cu->userdata);
-        if(results) g_variant_unref(results);
-        goto done;
+    bool success = false;
+    if(response == 0 && results) {
+        gchar *session_handle = NULL;
+        if(g_variant_lookup(results, "session_handle", "s", &session_handle) && session_handle) {
+            self->session_handle = strdup(session_handle);
+            self->session_created = true;
+            success = true;
+            g_free(session_handle);
+        }
     }
+    if(results) g_variant_unref(results);
 
-    gchar *session_handle = NULL;
-    if(g_variant_lookup(results, "session_handle", "s", &session_handle) && session_handle) {
-        cu->self->session_handle = strdup(session_handle);
-        cu->self->session_created = true;
-        cu->callback(true, cu->userdata);
-        g_free(session_handle);
-    } else {
-        cu->callback(false, cu->userdata);
-    }
-    g_variant_unref(results);
-
-    done:
-    free(cu);
+    callback(success, callback_userdata);
 }
 
 static bool gsr_global_shortcuts_create_session(gsr_global_shortcuts *self, gsr_init_callback callback, void *userdata) {
@@ -197,21 +229,17 @@ static bool gsr_global_shortcuts_create_session(gsr_global_shortcuts *self, gsr_
             return false;
         }
 
-        GDBusProxy *proxy = g_dbus_proxy_new_for_bus_sync(G_BUS_TYPE_SESSION, G_DBUS_PROXY_FLAGS_DO_NOT_AUTO_START, NULL, "org.freedesktop.portal.Desktop", val, "org.freedesktop.portal.Request", NULL, NULL);
-        g_variant_unref(ret);
-        if(!proxy)
-            return false;
-
         signal_create_session_userdata *cu = malloc(sizeof(signal_create_session_userdata));
         if(!cu) {
-            g_object_unref(proxy);
+            g_variant_unref(ret);
             return false;
         }
         cu->self = self;
         cu->callback = callback;
         cu->userdata = userdata;
-        g_signal_connect(proxy, "g-signal", G_CALLBACK(dbus_signal_create_session), cu);
-        return true;
+        bool ok = watch_request(self, val, G_CALLBACK(dbus_signal_create_session), cu);
+        g_variant_unref(ret); /* owns val */
+        return ok;
     } else {
         return false;
     }
@@ -241,6 +269,17 @@ bool gsr_global_shortcuts_init(gsr_global_shortcuts *self, gsr_init_callback cal
 }
 
 void gsr_global_shortcuts_deinit(gsr_global_shortcuts *self) {
+    if(self->activated_signal_id && self->gdbus_con)
+        g_dbus_connection_signal_unsubscribe(self->gdbus_con, self->activated_signal_id);
+    self->activated_signal_id = 0;
+
+    /* Tell the portal to drop requests we no longer care about, so e.g. a
+     * BindShortcuts dialog doesn't stay open after the window is gone */
+    for(GSList *l = self->pending_requests; l; l = l->next)
+        g_dbus_proxy_call(l->data, "Close", NULL, G_DBUS_CALL_FLAGS_NONE, -1, NULL, NULL, NULL);
+    g_slist_free_full(g_steal_pointer(&self->pending_requests), g_object_unref);
+    if(self->gdbus_con)
+        g_dbus_connection_flush_sync(self->gdbus_con, NULL, NULL);
     g_clear_object(&self->gdbus_con);
 
     g_clear_pointer(&self->session_handle, free);
@@ -271,21 +310,17 @@ bool gsr_global_shortcuts_list_shortcuts(gsr_global_shortcuts *self, gsr_shortcu
             return false;
         }
 
-        GDBusProxy *proxy = g_dbus_proxy_new_for_bus_sync(G_BUS_TYPE_SESSION, G_DBUS_PROXY_FLAGS_DO_NOT_AUTO_START, NULL, "org.freedesktop.portal.Desktop", val, "org.freedesktop.portal.Request", NULL, NULL);
-        g_variant_unref(ret);
-        if(!proxy)
-            return false;
-
         signal_list_bind_userdata *cu = malloc(sizeof(signal_list_bind_userdata));
         if(!cu) {
-            g_object_unref(proxy);
+            g_variant_unref(ret);
             return false;
         }
         cu->self = self;
         cu->callback = callback;
         cu->userdata = userdata;
-        g_signal_connect(proxy, "g-signal", G_CALLBACK(dbus_signal_list_bind), cu);
-        return true;
+        bool ok = watch_request(self, val, G_CALLBACK(dbus_signal_list_bind), cu);
+        g_variant_unref(ret); /* owns val */
+        return ok;
     } else {
         return false;
     }
@@ -331,21 +366,17 @@ bool gsr_global_shortcuts_bind_shortcuts(gsr_global_shortcuts *self, const gsr_b
             return false;
         }
 
-        GDBusProxy *proxy = g_dbus_proxy_new_for_bus_sync(G_BUS_TYPE_SESSION, G_DBUS_PROXY_FLAGS_DO_NOT_AUTO_START, NULL, "org.freedesktop.portal.Desktop", val, "org.freedesktop.portal.Request", NULL, NULL);
-        g_variant_unref(ret);
-        if(!proxy)
-            return false;
-
         signal_list_bind_userdata *cu = malloc(sizeof(signal_list_bind_userdata));
         if(!cu) {
-            g_object_unref(proxy);
+            g_variant_unref(ret);
             return false;
         }
         cu->self = self;
         cu->callback = callback;
         cu->userdata = userdata;
-        g_signal_connect(proxy, "g-signal", G_CALLBACK(dbus_signal_list_bind), cu);
-        return true;
+        bool ok = watch_request(self, val, G_CALLBACK(dbus_signal_list_bind), cu);
+        g_variant_unref(ret); /* owns val */
+        return ok;
     } else {
         return false;
     }
@@ -356,10 +387,14 @@ bool gsr_global_shortcuts_subscribe_activated_signal(gsr_global_shortcuts *self,
         return false;
 
     signal_userdata *cu = malloc(sizeof(signal_userdata));
+    if(!cu)
+        return false;
     cu->self = self;
     cu->deactivated_callback = deactivated_callback;
     cu->shortcut_changed_callback = shortcut_changed_callback;
     cu->userdata = userdata;
-    g_dbus_connection_signal_subscribe(self->gdbus_con, "org.freedesktop.portal.Desktop", "org.freedesktop.portal.GlobalShortcuts", NULL, "/org/freedesktop/portal/desktop", NULL, G_DBUS_SIGNAL_FLAGS_NONE, signal_callback, cu, free);
+    if(self->activated_signal_id)
+        g_dbus_connection_signal_unsubscribe(self->gdbus_con, self->activated_signal_id);
+    self->activated_signal_id = g_dbus_connection_signal_subscribe(self->gdbus_con, "org.freedesktop.portal.Desktop", "org.freedesktop.portal.GlobalShortcuts", NULL, "/org/freedesktop/portal/desktop", NULL, G_DBUS_SIGNAL_FLAGS_NONE, signal_callback, cu, free);
     return true;
 }

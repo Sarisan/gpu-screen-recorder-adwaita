@@ -316,7 +316,6 @@ build_dialog_ui(GsrShortcutAccelDialog *self)
     gtk_label_set_markup(display_title, display_text);
     gtk_label_set_justify(display_title, GTK_JUSTIFY_CENTER);
     gtk_label_set_wrap(display_title, TRUE);
-    g_free(display_text);
     gtk_box_append(display_box, GTK_WIDGET(display_title));
 
     self->display_label = GTK_SHORTCUT_LABEL(gtk_shortcut_label_new(""));
