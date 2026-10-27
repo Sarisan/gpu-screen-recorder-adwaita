@@ -225,6 +225,12 @@ build_capture_group(GsrConfigPage *self)
         ids_array_append(&self->record_area_ids, &self->n_record_area_ids, &cap, m->name);
     }
 
+    /* Region — picked interactively each time capture starts */
+    if (info->supported_capture_options.region) {
+        gtk_string_list_append(self->record_area_model, _("Region"));
+        ids_array_append(&self->record_area_ids, &self->n_record_area_ids, &cap, "region");
+    }
+
     /* Desktop portal — only on Wayland with portal support */
     if (info->system_info.display_server == GSR_DISPLAY_SERVER_WAYLAND
         && info->supported_capture_options.portal) {

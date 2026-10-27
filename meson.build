@@ -24,10 +24,12 @@ src = [
     'src/gsr-record-page.c',
     'src/gsr-replay-page.c',
     'src/gsr-hotkeys.c',
+    'src/gsr-region-selector.c',
 ]
 
 dep = [
     dependency('libadwaita-1', version : '>=1.8'),
+    meson.get_compiler('c').find_library('m', required : false),
 ]
 
 c_args = [

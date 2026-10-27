@@ -169,8 +169,10 @@ parse_capture_options(ParseState *st, const char *line, size_t len)
         st->info->supported_capture_options.focused = true;
     } else if (str_eq(line, len, "portal")) {
         st->info->supported_capture_options.portal = true;
-    } else if (str_eq(line, len, "region") || (len > 0 && line[0] == '/')) {
-        /* skip "region" and DRM card paths */
+    } else if (str_eq(line, len, "region")) {
+        st->info->supported_capture_options.region = true;
+    } else if (len > 0 && line[0] == '/') {
+        /* skip DRM card paths */
     } else {
         /* monitor entry: name|WxH */
         if (st->n_monitors >= st->monitors_capacity) {

@@ -15,6 +15,7 @@ extern char **environ;
 #include "gsr-hotkeys.h"
 #include "gsr-info.h"
 #include "gsr-record-page.h"
+#include "gsr-region-selector.h"
 #include "gsr-replay-page.h"
 #include "gsr-stream-page.h"
 
@@ -68,6 +69,12 @@ struct _GsrWindow {
     GsrActiveMode       active_mode;
     char               *record_filename;    /* owned, recording only */
     guint               poll_timer_id;      /* 500ms poll timer */
+
+    /* ── Region capture ─── */
+    gboolean            selecting_region;   /* selector overlay is open */
+    gboolean            has_region;         /* region picked, not yet used */
+    GdkRectangle        region;
+    GsrActiveMode       region_mode;        /* mode to start once picked */
 
     /* ── Desktop notifications ─── */
     gboolean            showing_notification;
@@ -287,6 +294,12 @@ build_command_args(GsrWindow *self, GsrActiveMode mode)
         g_ptr_array_add(args, g_strdup_printf("focused:%dx%d", aw, ah));
     } else if (g_str_equal(area_id, "portal")) {
         g_ptr_array_add(args, g_strdup("portal"));
+    } else if (g_str_equal(area_id, "region")) {
+        g_ptr_array_add(args, g_strdup("region"));
+        g_ptr_array_add(args, g_strdup("-region"));
+        g_ptr_array_add(args, g_strdup_printf("%dx%d+%d+%d",
+            self->region.width, self->region.height,
+            self->region.x, self->region.y));
     } else if (g_str_equal(area_id, "window")) {
         unsigned long wid = gsr_config_page_get_selected_window(self->config_page);
         if (wid == 0) {
@@ -1059,6 +1072,62 @@ gsr_window_set_recording_active(GsrWindow *self, gboolean active)
     gtk_widget_set_sensitive(GTK_WIDGET(self->view_switcher_bar), !active);
 }
 
+/* ── Region selection ────────────────────────────────────────────── */
+
+static void
+activate_start_stop_for_mode(GsrWindow *self, GsrActiveMode mode)
+{
+    switch (mode) {
+    case GSR_ACTIVE_MODE_STREAM:
+        gsr_stream_page_activate_start_stop(self->stream_page);
+        break;
+    case GSR_ACTIVE_MODE_RECORD:
+        gsr_record_page_activate_start_stop(self->record_page);
+        break;
+    case GSR_ACTIVE_MODE_REPLAY:
+        gsr_replay_page_activate_start_stop(self->replay_page);
+        break;
+    default:
+        break;
+    }
+}
+
+static gboolean
+on_region_start_timeout(gpointer user_data)
+{
+    GsrWindow *self = GSR_WINDOW(user_data);
+
+    /* Re-run the page's normal start path. Button activation emits "clicked"
+     * only after its pressed animation, so leave has_region for
+     * start_process to consume rather than clearing it here. */
+    activate_start_stop_for_mode(self, self->region_mode);
+    return G_SOURCE_REMOVE;
+}
+
+static void
+on_region_selected(GObject      *source G_GNUC_UNUSED,
+                   GAsyncResult *result,
+                   gpointer      user_data)
+{
+    g_autoptr(GsrWindow) self = user_data;
+    g_autoptr(GError) error = NULL;
+
+    self->selecting_region = FALSE;
+
+    if (!gsr_region_selector_select_finish(result, &self->region, &error)) {
+        if (!g_error_matches(error, G_IO_ERROR, G_IO_ERROR_CANCELLED))
+            send_notification(self, "GPU Screen Recorder", error->message,
+                G_NOTIFICATION_PRIORITY_URGENT);
+        return;
+    }
+
+    /* Give the compositor a moment to unmap the overlays so they don't
+     * end up in the first frames of the capture. */
+    self->has_region = TRUE;
+    g_timeout_add_full(G_PRIORITY_DEFAULT, 250, on_region_start_timeout,
+                       g_object_ref(self), g_object_unref);
+}
+
 gboolean
 gsr_window_start_process(GsrWindow *self, GsrActiveMode mode)
 {
@@ -1083,8 +1152,24 @@ gsr_window_start_process(GsrWindow *self, GsrActiveMode mode)
         }
     }
 
+    /* Region mode: pick the region first, then come back through the page's
+     * start path (see on_region_selected). */
+    if (g_str_equal(gsr_config_page_get_record_area_id(self->config_page), "region")
+        && !self->has_region)
+    {
+        if (!self->selecting_region) {
+            self->selecting_region = TRUE;
+            self->region_mode = mode;
+            gsr_region_selector_select_async(
+                gtk_widget_get_display(GTK_WIDGET(self)), NULL,
+                on_region_selected, g_object_ref(self));
+        }
+        return FALSE;
+    }
+
     /* Build command line */
     GPtrArray *args = build_command_args(self, mode);
+    self->has_region = FALSE;
     if (!args) {
         send_notification(self, "GPU Screen Recorder",
             _("Failed to build command (no window selected)"),
