@@ -810,7 +810,7 @@ gsr_stream_page_get_stream_url(GsrStreamPage *self)
             g_string_append_c(out, '/');
         g_string_append(out, "app/");
         g_string_append(out, key ? key : "");
-        return g_string_free(out, FALSE);
+        return g_string_free_and_steal(out);
     }
     case STREAM_SERVICE_WHIP: {
         const char *url = gtk_editable_get_text(GTK_EDITABLE(self->whip_url_row));
@@ -843,7 +843,7 @@ gsr_stream_page_get_stream_url(GsrStreamPage *self)
                 g_string_append_c(out, '/');
             g_string_append(out, key);
         }
-        return g_string_free(out, FALSE);
+        return g_string_free_and_steal(out);
     }
     case STREAM_SERVICE_COUNT:
         break;
