@@ -3,6 +3,7 @@
 #include <math.h>
 #include <adwaita.h>
 #include <glib/gi18n.h>
+#include <glib/gstdio.h>
 
 #ifdef HAVE_X11
 #include <gdk/x11/gdkx.h>
@@ -11,13 +12,21 @@
 /* ═══════════════════════════════════════════════════════════════════
  *  Region selector
  *
- *  One undecorated, transparent fullscreen window per monitor. Each window
- *  paints a dim veil; while dragging, the selected rectangle is cut out of
- *  the veil and outlined in the accent color with its pixel size.
+ *  One undecorated fullscreen window per monitor. Before the windows are
+ *  shown, each monitor is captured with gpu-screen-recorder and the image is
+ *  painted as a frozen backdrop, since compositors such as GNOME draw
+ *  fullscreen windows opaquely and real transparency would show black. A dim
+ *  veil goes on top; while dragging, the selected rectangle is cut out of the
+ *  veil and outlined in the accent color with its pixel size.
+ *
+ *  If a capture fails, that overlay falls back to a translucent veil.
  * ═══════════════════════════════════════════════════════════════════ */
 
 /* Drags smaller than this in both directions count as a click */
 #define MIN_DRAG_SIZE 8
+
+/* Give up on backdrop captures after this long and show plain overlays */
+#define CAPTURE_TIMEOUT_MS 3000
 
 typedef struct _Selector Selector;
 
@@ -26,6 +35,10 @@ typedef struct {
     GtkWindow  *window;
     GtkWidget  *area;
     GdkMonitor *monitor;    /* owned ref */
+
+    GSubprocess     *capture;       /* owned while the backdrop is captured */
+    char            *capture_path;  /* owned */
+    cairo_surface_t *backdrop;      /* owned, nullable */
 } Overlay;
 
 struct _Selector {
@@ -33,6 +46,10 @@ struct _Selector {
     GCancellable *cancellable;   /* owned, nullable */
     gulong        cancelled_id;
     GPtrArray    *overlays;      /* Overlay*, owned */
+
+    char         *capture_dir;   /* owned, private temp dir */
+    guint         pending_captures;
+    guint         capture_timeout_id;
 
     Overlay      *active;        /* overlay with a drag in progress */
     double        start_x, start_y;
@@ -46,6 +63,9 @@ overlay_free(Overlay *ov)
 {
     gtk_window_destroy(ov->window);
     g_object_unref(ov->monitor);
+    g_clear_object(&ov->capture);
+    g_free(ov->capture_path);
+    g_clear_pointer(&ov->backdrop, cairo_surface_destroy);
     g_free(ov);
 }
 
@@ -56,7 +76,9 @@ selector_free(Selector *sel)
         g_cancellable_disconnect(sel->cancellable, sel->cancelled_id);
         g_object_unref(sel->cancellable);
     }
+    g_clear_handle_id(&sel->capture_timeout_id, g_source_remove);
     g_clear_pointer(&sel->overlays, g_ptr_array_unref);
+    g_free(sel->capture_dir);
     g_free(sel);
 }
 
@@ -174,15 +196,35 @@ overlay_draw(GtkDrawingArea *area, cairo_t *cr, int width, int height,
     Overlay *ov = user_data;
     Selector *sel = ov->selector;
 
-    /* Dim veil; SOURCE so the cut-out below can punch through it */
+    /* Frozen backdrop, or fully transparent if the capture failed */
+    cairo_save(cr);
     cairo_set_operator(cr, CAIRO_OPERATOR_SOURCE);
-    cairo_set_source_rgba(cr, 0, 0, 0, 0.4);
+    if (ov->backdrop) {
+        cairo_scale(cr,
+            (double)width / cairo_image_surface_get_width(ov->backdrop),
+            (double)height / cairo_image_surface_get_height(ov->backdrop));
+        cairo_set_source_surface(cr, ov->backdrop, 0, 0);
+    } else {
+        cairo_set_source_rgba(cr, 0, 0, 0, 0);
+    }
     cairo_paint(cr);
+    cairo_restore(cr);
 
-    if (sel->active != ov) {
+    /* Dim veil over everything except the selection */
+    gboolean selecting = sel->active == ov;
+    GdkRectangle r = selecting ? selection_rect(sel, width, height)
+                               : (GdkRectangle){ 0, 0, 0, 0 };
+    cairo_set_operator(cr, CAIRO_OPERATOR_OVER);
+    cairo_set_fill_rule(cr, CAIRO_FILL_RULE_EVEN_ODD);
+    cairo_rectangle(cr, 0, 0, width, height);
+    if (selecting)
+        cairo_rectangle(cr, r.x, r.y, r.width, r.height);
+    cairo_set_source_rgba(cr, 0, 0, 0, 0.4);
+    cairo_fill(cr);
+
+    if (!selecting) {
         const char *hint =
             _("Drag to select an area · Click to select the whole monitor · Esc to cancel");
-        cairo_set_operator(cr, CAIRO_OPERATOR_OVER);
         PangoLayout *layout = gtk_widget_create_pango_layout(GTK_WIDGET(area), hint);
         int tw, th;
         pango_layout_get_pixel_size(layout, &tw, &th);
@@ -192,13 +234,6 @@ overlay_draw(GtkDrawingArea *area, cairo_t *cr, int width, int height,
         return;
     }
 
-    GdkRectangle r = selection_rect(sel, width, height);
-
-    cairo_rectangle(cr, r.x, r.y, r.width, r.height);
-    cairo_set_source_rgba(cr, 0, 0, 0, 0);
-    cairo_fill(cr);
-
-    cairo_set_operator(cr, CAIRO_OPERATOR_OVER);
     g_autoptr(GdkRGBA) accent =
         adw_style_manager_get_accent_color_rgba(adw_style_manager_get_default());
     gdk_cairo_set_source_rgba(cr, accent);
@@ -333,9 +368,101 @@ overlay_new(Selector *sel, GdkMonitor *monitor)
     g_signal_connect(keys, "key-pressed", G_CALLBACK(on_key_pressed), sel);
     gtk_widget_add_controller(GTK_WIDGET(ov->window), keys);
 
-    gtk_window_fullscreen_on_monitor(ov->window, monitor);
-    gtk_window_present(ov->window);
     return ov;
+}
+
+/* ── Backdrop capture ────────────────────────────────────────────── */
+
+static cairo_surface_t *
+load_backdrop(const char *path)
+{
+    g_autoptr(GdkTexture) texture = gdk_texture_new_from_filename(path, NULL);
+    if (!texture)
+        return NULL;
+
+    int w = gdk_texture_get_width(texture);
+    int h = gdk_texture_get_height(texture);
+    cairo_surface_t *surface = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, w, h);
+    /* GDK_MEMORY_DEFAULT matches CAIRO_FORMAT_ARGB32 on either endianness */
+    gdk_texture_download(texture, cairo_image_surface_get_data(surface),
+                         (gsize)cairo_image_surface_get_stride(surface));
+    cairo_surface_mark_dirty(surface);
+    return surface;
+}
+
+static void
+selector_show(Selector *sel)
+{
+    g_clear_handle_id(&sel->capture_timeout_id, g_source_remove);
+
+    for (guint i = 0; i < sel->overlays->len; i++) {
+        Overlay *ov = g_ptr_array_index(sel->overlays, i);
+        if (ov->capture_path) {
+            g_unlink(ov->capture_path);
+            g_clear_pointer(&ov->capture_path, g_free);
+        }
+        gtk_window_fullscreen_on_monitor(ov->window, ov->monitor);
+        gtk_window_present(ov->window);
+    }
+    if (sel->capture_dir)
+        g_rmdir(sel->capture_dir);
+
+    if (sel->cancellable)
+        sel->cancelled_id = g_cancellable_connect(sel->cancellable,
+            G_CALLBACK(on_cancellable_cancelled), sel, NULL);
+}
+
+static void
+on_capture_done(GObject *source, GAsyncResult *result, gpointer user_data)
+{
+    Overlay *ov = user_data;
+    Selector *sel = ov->selector;
+
+    if (g_subprocess_wait_check_finish(G_SUBPROCESS(source), result, NULL))
+        ov->backdrop = load_backdrop(ov->capture_path);
+    g_clear_object(&ov->capture);
+
+    if (--sel->pending_captures == 0)
+        selector_show(sel);
+}
+
+static gboolean
+on_capture_timeout(gpointer user_data)
+{
+    Selector *sel = user_data;
+    sel->capture_timeout_id = 0;
+
+    /* Each forced exit still runs on_capture_done, which shows the overlays
+     * once the last one is accounted for. */
+    for (guint i = 0; i < sel->overlays->len; i++) {
+        Overlay *ov = g_ptr_array_index(sel->overlays, i);
+        if (ov->capture)
+            g_subprocess_force_exit(ov->capture);
+    }
+    return G_SOURCE_REMOVE;
+}
+
+/* Start capturing one monitor with gpu-screen-recorder; matched by connector
+ * name (e.g. "DP-2"), which is also what gpu-screen-recorder calls it. */
+static void
+capture_start(Selector *sel, Overlay *ov, guint index)
+{
+    const char *connector = gdk_monitor_get_connector(ov->monitor);
+    if (!connector || !sel->capture_dir)
+        return;
+
+    g_autofree char *name = g_strdup_printf("monitor-%u.jpg", index);
+    ov->capture_path = g_build_filename(sel->capture_dir, name, NULL);
+
+    ov->capture = g_subprocess_new(
+        G_SUBPROCESS_FLAGS_STDOUT_SILENCE | G_SUBPROCESS_FLAGS_STDERR_SILENCE, NULL,
+        "gpu-screen-recorder", "-w", connector, "-cursor", "no", "-v", "no",
+        "-q", "very_high", "-o", ov->capture_path, NULL);
+    if (!ov->capture)
+        return;
+
+    sel->pending_captures++;
+    g_subprocess_wait_check_async(ov->capture, NULL, on_capture_done, ov);
 }
 
 /* ── Public API ──────────────────────────────────────────────────── */
@@ -367,16 +494,24 @@ gsr_region_selector_select_async(GdkDisplay          *display,
     sel->overlays = g_ptr_array_new_with_free_func((GDestroyNotify)overlay_free);
     g_task_set_task_data(task, sel, (GDestroyNotify)selector_free);
 
+    /* Cancellation is only hooked up once the overlays are shown, so it
+     * can't tear them down while captures still reference them. */
+    if (cancellable)
+        sel->cancellable = g_object_ref(cancellable);
+
+    sel->capture_dir = g_dir_make_tmp("gsr-region-XXXXXX", NULL);
+
     for (guint i = 0; i < n; i++) {
         g_autoptr(GdkMonitor) monitor = g_list_model_get_item(monitors, i);
-        g_ptr_array_add(sel->overlays, overlay_new(sel, monitor));
+        Overlay *ov = overlay_new(sel, monitor);
+        g_ptr_array_add(sel->overlays, ov);
+        capture_start(sel, ov, i);
     }
 
-    if (cancellable) {
-        sel->cancellable = g_object_ref(cancellable);
-        sel->cancelled_id = g_cancellable_connect(cancellable,
-            G_CALLBACK(on_cancellable_cancelled), sel, NULL);
-    }
+    if (sel->pending_captures == 0)
+        selector_show(sel);
+    else
+        sel->capture_timeout_id = g_timeout_add(CAPTURE_TIMEOUT_MS, on_capture_timeout, sel);
 }
 
 gboolean
