@@ -5,5 +5,5 @@ src/gsr-record-page.c
 src/gsr-replay-page.c
 src/gsr-stream-page.c
 src/gsr-shortcut-accel-dialog.c
-com.dec05eba.gpu_screen_recorder.desktop.in
-com.dec05eba.gpu_screen_recorder.metainfo.xml.in
+io.github.runlevel5.gpu_screen_recorder_adwaita.desktop.in
+io.github.runlevel5.gpu_screen_recorder_adwaita.metainfo.xml.in

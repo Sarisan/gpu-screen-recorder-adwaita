@@ -302,7 +302,7 @@ msgid "Opus (Recommended)"
 msgstr "Opus (Khuyến nghị)"
 
 #: src/gsr-config-page.c:402
-#: com.dec05eba.gpu_screen_recorder.metainfo.xml.in:41
+#: io.github.runlevel5.gpu_screen_recorder_adwaita.metainfo.xml.in:41
 msgid "AAC"
 msgstr ""
 
@@ -416,7 +416,7 @@ msgid "AV1 HDR (N/A)"
 msgstr ""
 
 #: src/gsr-config-page.c:602
-#: com.dec05eba.gpu_screen_recorder.metainfo.xml.in:35
+#: io.github.runlevel5.gpu_screen_recorder_adwaita.metainfo.xml.in:35
 msgid "VP8"
 msgstr ""
 
@@ -425,7 +425,7 @@ msgid "VP8 (N/A)"
 msgstr ""
 
 #: src/gsr-config-page.c:603
-#: com.dec05eba.gpu_screen_recorder.metainfo.xml.in:36
+#: io.github.runlevel5.gpu_screen_recorder_adwaita.metainfo.xml.in:36
 msgid "VP9"
 msgstr ""
 
@@ -672,91 +672,91 @@ msgstr "Nhấn Escape để hủy hoặc Backspace để vô hiệu hóa phím t
 msgid "Shortcut for <b>%s</b>"
 msgstr "Phím tắt cho <b>%s</b>"
 
-#: com.dec05eba.gpu_screen_recorder.desktop.in:3
-#: com.dec05eba.gpu_screen_recorder.metainfo.xml.in:4
+#: io.github.runlevel5.gpu_screen_recorder_adwaita.desktop.in:3
+#: io.github.runlevel5.gpu_screen_recorder_adwaita.metainfo.xml.in:4
 msgid "GPU Screen Recorder"
 msgstr ""
 
-#: com.dec05eba.gpu_screen_recorder.desktop.in:4
+#: io.github.runlevel5.gpu_screen_recorder_adwaita.desktop.in:4
 msgid "Screen Recorder"
 msgstr "Trình ghi hình màn hình"
 
-#: com.dec05eba.gpu_screen_recorder.desktop.in:5
+#: io.github.runlevel5.gpu_screen_recorder_adwaita.desktop.in:5
 msgid "A GPU-based screen recorder / streaming program"
 msgstr "Chương trình ghi hình màn hình / phát trực tiếp dựa trên GPU"
 
-#: com.dec05eba.gpu_screen_recorder.desktop.in:9
+#: io.github.runlevel5.gpu_screen_recorder_adwaita.desktop.in:9
 msgid "gpu-screen-recorder;screen recorder;streaming;twitch;replay;shadowplay;"
 msgstr "gpu-screen-recorder;ghi hình màn hình;ghi màn hình;phát trực tiếp;twitch;phát lại;shadowplay;"
 
-#: com.dec05eba.gpu_screen_recorder.metainfo.xml.in:5
+#: io.github.runlevel5.gpu_screen_recorder_adwaita.metainfo.xml.in:5
 msgid "A shadowplay-like screen recorder for Linux. The fastest screen recorder for Linux"
 msgstr "Trình ghi hình màn hình giống ShadowPlay cho Linux. Trình ghi hình màn hình nhanh nhất cho Linux"
 
-#: com.dec05eba.gpu_screen_recorder.metainfo.xml.in:7
+#: io.github.runlevel5.gpu_screen_recorder_adwaita.metainfo.xml.in:7
 msgid "dec05eba"
 msgstr ""
 
-#: com.dec05eba.gpu_screen_recorder.metainfo.xml.in:21
+#: io.github.runlevel5.gpu_screen_recorder_adwaita.metainfo.xml.in:21
 msgid "This is a screen recorder that has minimal impact on system performance by recording a monitor using the GPU only, similar to shadowplay on windows. This is the fastest screen recording tool for Linux. This screen recorder works on X11 and Wayland on AMD, Intel and NVIDIA."
 msgstr "Đây là một trình ghi hình màn hình có tác động tối thiểu đến hiệu năng hệ thống bằng cách chỉ dùng GPU để ghi hình một màn hình, tương tự ShadowPlay trên Windows. Đây là công cụ ghi hình màn hình nhanh nhất cho Linux. Trình ghi hình này hoạt động trên X11 và Wayland với GPU AMD, Intel và NVIDIA."
 
-#: com.dec05eba.gpu_screen_recorder.metainfo.xml.in:24
+#: io.github.runlevel5.gpu_screen_recorder_adwaita.metainfo.xml.in:24
 msgid "This screen recorder can be used for recording your desktop offline, for live streaming and for nvidia-like instant replay, where only the last few minutes are saved."
 msgstr "Trình ghi hình này có thể dùng để ghi hình màn hình ngoại tuyến, phát trực tiếp và phát lại tức thì kiểu NVIDIA, nơi chỉ vài phút cuối được lưu lại."
 
-#: com.dec05eba.gpu_screen_recorder.metainfo.xml.in:27
+#: io.github.runlevel5.gpu_screen_recorder_adwaita.metainfo.xml.in:27
 msgid "This is the GNOME (libadwaita) frontend for GPU Screen Recorder, providing a modern Adwaita UI for screen recording, streaming, and replay (ShadowPlay-like) functionality."
 msgstr "Đây là giao diện GNOME (libadwaita) cho GPU Screen Recorder, cung cấp giao diện Adwaita hiện đại cho các chức năng ghi hình màn hình, phát trực tiếp và phát lại (kiểu ShadowPlay)."
 
-#: com.dec05eba.gpu_screen_recorder.metainfo.xml.in:30
+#: io.github.runlevel5.gpu_screen_recorder_adwaita.metainfo.xml.in:30
 msgid "Supported video codecs:"
 msgstr "Các codec video được hỗ trợ:"
 
-#: com.dec05eba.gpu_screen_recorder.metainfo.xml.in:32
+#: io.github.runlevel5.gpu_screen_recorder_adwaita.metainfo.xml.in:32
 msgid "H264 (default)"
 msgstr ""
 
-#: com.dec05eba.gpu_screen_recorder.metainfo.xml.in:33
+#: io.github.runlevel5.gpu_screen_recorder_adwaita.metainfo.xml.in:33
 msgid "HEVC (Optionally with HDR)"
 msgstr ""
 
-#: com.dec05eba.gpu_screen_recorder.metainfo.xml.in:34
+#: io.github.runlevel5.gpu_screen_recorder_adwaita.metainfo.xml.in:34
 msgid "AV1 (Optionally with HDR)"
 msgstr ""
 
-#: com.dec05eba.gpu_screen_recorder.metainfo.xml.in:38
+#: io.github.runlevel5.gpu_screen_recorder_adwaita.metainfo.xml.in:38
 msgid "Supported audio codecs:"
 msgstr "Các codec âm thanh được hỗ trợ:"
 
-#: com.dec05eba.gpu_screen_recorder.metainfo.xml.in:40
+#: io.github.runlevel5.gpu_screen_recorder_adwaita.metainfo.xml.in:40
 msgid "Opus (default)"
 msgstr ""
 
-#: com.dec05eba.gpu_screen_recorder.metainfo.xml.in:43
+#: io.github.runlevel5.gpu_screen_recorder_adwaita.metainfo.xml.in:43
 msgid "Videos are in variable framerate format by default. Use MPV to play such videos, otherwise you might experience stuttering in the video if you are using a buggy video player. Alternatively change framerate mode to constant framerate."
 msgstr "Video mặc định ở định dạng tốc độ khung hình biến đổi. Hãy dùng MPV để phát các video này, nếu không bạn có thể gặp hiện tượng giật hình nếu đang dùng trình phát video có lỗi. Ngoài ra, bạn có thể đổi chế độ tốc độ khung hình sang cố định."
 
-#: com.dec05eba.gpu_screen_recorder.metainfo.xml.in:44
+#: io.github.runlevel5.gpu_screen_recorder_adwaita.metainfo.xml.in:44
 msgid "For more information visit the GPU Screen Recorder homepage."
 msgstr "Để biết thêm thông tin, hãy truy cập trang chủ GPU Screen Recorder."
 
-#: com.dec05eba.gpu_screen_recorder.metainfo.xml.in:50
+#: io.github.runlevel5.gpu_screen_recorder_adwaita.metainfo.xml.in:50
 msgid "Recording page"
 msgstr "Trang ghi hình"
 
-#: com.dec05eba.gpu_screen_recorder.metainfo.xml.in:59
+#: io.github.runlevel5.gpu_screen_recorder_adwaita.metainfo.xml.in:59
 msgid "Initial release of the GNOME (libadwaita) frontend"
 msgstr "Bản phát hành đầu tiên của giao diện GNOME (libadwaita)"
 
-#: com.dec05eba.gpu_screen_recorder.metainfo.xml.in:60
+#: io.github.runlevel5.gpu_screen_recorder_adwaita.metainfo.xml.in:60
 msgid "Port from GTK3 to libadwaita (GTK4/Adwaita)"
 msgstr "Chuyển đổi từ GTK3 sang libadwaita (GTK4/Adwaita)"
 
-#: com.dec05eba.gpu_screen_recorder.metainfo.xml.in:61
+#: io.github.runlevel5.gpu_screen_recorder_adwaita.metainfo.xml.in:61
 msgid "Support for screen recording, streaming, and replay"
 msgstr "Hỗ trợ ghi hình màn hình, phát trực tiếp và phát lại"
 
-#: com.dec05eba.gpu_screen_recorder.metainfo.xml.in:62
+#: io.github.runlevel5.gpu_screen_recorder_adwaita.metainfo.xml.in:62
 msgid "X11 and Wayland support with global hotkeys"
 msgstr "Hỗ trợ X11 và Wayland với phím nóng toàn cục"

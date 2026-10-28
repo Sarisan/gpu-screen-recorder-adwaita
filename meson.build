@@ -1,5 +1,5 @@
 project('gpu-screen-recorder-adwaita', 'c',
-    version : '2.0.0',
+    version : '2.0.1',
     default_options : ['warning_level=2', 'c_std=gnu23'],
 )
 
@@ -67,16 +67,16 @@ executable('gpu-screen-recorder-adw',
 subdir('po')
 
 i18n.merge_file(
-    input : 'com.dec05eba.gpu_screen_recorder.desktop.in',
-    output : 'com.dec05eba.gpu_screen_recorder.desktop',
+    input : 'io.github.runlevel5.gpu_screen_recorder_adwaita.desktop.in',
+    output : 'io.github.runlevel5.gpu_screen_recorder_adwaita.desktop',
     type : 'desktop',
     po_dir : 'po',
     install : true,
     install_dir : join_paths(get_option('prefix'), get_option('datadir'), 'applications'),
 )
 i18n.merge_file(
-    input : 'com.dec05eba.gpu_screen_recorder.metainfo.xml.in',
-    output : 'com.dec05eba.gpu_screen_recorder.metainfo.xml',
+    input : 'io.github.runlevel5.gpu_screen_recorder_adwaita.metainfo.xml.in',
+    output : 'io.github.runlevel5.gpu_screen_recorder_adwaita.metainfo.xml',
     type : 'xml',
     po_dir : 'po',
     install : true,
