@@ -53,6 +53,21 @@
     </screenshots>
 
     <releases>
+        <release version="2.0.0" date="2026-10-28">
+            <description>
+                <ul>
+                    <li>Record a selected region of the screen, picked with an on-screen selector</li>
+                    <li>Stream to Rumble, Kick and WHIP servers, with a stream key for custom URLs</li>
+                    <li>Hide video codecs the GPU does not support</li>
+                    <li>Click the saved-recording notification to open its folder</li>
+                    <li>Translations: German, Spanish, French, Italian, Portuguese and Vietnamese</li>
+                    <li>Fix the window not painting and crashing on close under X11</li>
+                    <li>Fix global shortcuts silently failing when the portal answers quickly</li>
+                    <li>Fix the default window size and truncated header tabs</li>
+                    <li>Fix memory leaks and lifetime bugs found by an audit</li>
+                </ul>
+            </description>
+        </release>
         <release version="1.0.0" date="2026-02-23">
             <description>
                 <ul>
