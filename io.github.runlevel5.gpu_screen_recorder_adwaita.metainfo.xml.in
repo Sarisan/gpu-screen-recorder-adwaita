@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <component type="desktop-application">
-    <id>com.dec05eba.gpu_screen_recorder</id>
+    <id>io.github.runlevel5.gpu_screen_recorder_adwaita</id>
     <name>GPU Screen Recorder</name>
     <summary>A shadowplay-like screen recorder for Linux. The fastest screen recorder for Linux</summary>
-    <developer id="com.dec05eba.gpu_screen_recorder">
+    <developer id="io.github.runlevel5">
         <name>dec05eba</name>
     </developer>
     <metadata_license>CC0-1.0</metadata_license>
@@ -44,7 +44,7 @@
         <p>For more information visit the GPU Screen Recorder homepage.</p>
     </description>
 
-    <launchable type="desktop-id">com.dec05eba.gpu_screen_recorder.desktop</launchable>
+    <launchable type="desktop-id">io.github.runlevel5.gpu_screen_recorder_adwaita.desktop</launchable>
     <screenshots>
         <screenshot type="default">
             <caption>Recording page</caption>
@@ -53,6 +53,13 @@
     </screenshots>
 
     <releases>
+        <release version="2.0.1" date="2026-10-28">
+            <description>
+                <ul>
+                    <li>Use the application ID io.github.runlevel5.gpu_screen_recorder_adwaita so the app no longer fails to start when gpu-screen-recorder-ui's GNOME helper owns com.dec05eba.gpu_screen_recorder on the session bus</li>
+                </ul>
+            </description>
+        </release>
         <release version="2.0.0" date="2026-10-28">
             <description>
                 <ul>

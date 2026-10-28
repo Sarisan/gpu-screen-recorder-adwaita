@@ -23,7 +23,7 @@ on_about_action(GSimpleAction *action,
     adw_about_dialog_set_version(about, GSR_VERSION);
     adw_about_dialog_set_developer_name(about, "dec05eba");
     adw_about_dialog_set_application_icon(about,
-        "com.dec05eba.gpu_screen_recorder");
+        "io.github.runlevel5.gpu_screen_recorder_adwaita");
     adw_about_dialog_set_license_type(about, GTK_LICENSE_GPL_3_0);
     adw_about_dialog_set_website(about,
         "https://github.com/runlevel5/gpu-screen-recorder-adwaita");
@@ -164,7 +164,7 @@ main(int argc, char *argv[])
     textdomain(GETTEXT_PACKAGE);
 
     g_autoptr(AdwApplication) app = adw_application_new(
-        "com.dec05eba.gpu_screen_recorder",
+        "io.github.runlevel5.gpu_screen_recorder_adwaita",
         G_APPLICATION_DEFAULT_FLAGS);
 
     static const GActionEntry app_actions[] = {
