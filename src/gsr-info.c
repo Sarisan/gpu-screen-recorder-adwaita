@@ -123,7 +123,9 @@ parse_gpu_info(ParseState *st, const char *line, size_t len)
     size_t vlen = len - klen - 1;
 
     if (str_eq(line, klen, "vendor")) {
-        if (str_eq(val, vlen, "amd"))
+        if (str_eq(val, vlen, "unknown"))
+            st->info->gpu_info.vendor = GSR_GPU_VENDOR_UNKNOWN;
+        else if (str_eq(val, vlen, "amd"))
             st->info->gpu_info.vendor = GSR_GPU_VENDOR_AMD;
         else if (str_eq(val, vlen, "intel"))
             st->info->gpu_info.vendor = GSR_GPU_VENDOR_INTEL;
